@@ -189,7 +189,10 @@ Cette distribution est placée sous la **Licence d’Autorisation Écrite Requis
 - **Tout le reste est interdit sans accord écrit** : reproduction, fork, modification, publication, distribution, intégration dans d’autres projets, hébergement/SaaS, et tout **usage commercial**.
 
 👉 Lisez le fichier [`LICENSE`](./LICENSE) pour le texte complet.  
-Pour obtenir une **autorisation écrite** (p.ex. commerciale, redistribution, intégration), contactez : `<ContactEmail>`.
+Pour obtenir une **autorisation écrite**, **ouvrez une issue “License request”** :  
+../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20
+
+
 
 ---
 
