@@ -191,7 +191,26 @@ Generate a **diagnostics report** from Home Assistant’s UI (sensitive info wil
 
 ## 🧾 License
 
-Released under the **MIT License**. See [`LICENSE`](./LICENSE) for details.
+This distribution is subject to the **Written Authorization Required License (LAER-TPHA-1.0)** — *Permitted use:* **Torque Pro ↔ Home Assistant**.
+
+**TL;DR:** personal, **non-commercial use only**. Any other use requires **written authorization**.
+
+### ✅ Allowed without prior approval
+- Install and use this component **on your own Home Assistant instance** to connect the Android app *Torque Pro*,
+- for **strictly non-commercial** purposes.
+
+### ❌ Prohibited without prior written consent
+- Reproduction, forking, or publishing derivative works,
+- Modification, publication, or **distribution** of the code/binaries,
+- Integration into other projects/products,
+- Hosting, **SaaS**, marketplaces, images/packs,
+- Any **commercial** use (direct or indirect).
+
+**Full text:** see [`LICENSE`](./LICENSE).  
+**Request authorization:** [open a “License request” issue](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
+
+> *“Torque”, “Torque Lite”, and “Torque Pro” are trademarks of their respective owners. Unofficial project.*
+
 
 ## 🙌 Acknowledgments
 
