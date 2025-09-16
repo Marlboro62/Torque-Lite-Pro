@@ -1,6 +1,10 @@
-<div style="text-align: center;">
-  <br>
-  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/logo.png" alt="HA Torque logo" width="336" style="display: block; margin: 0 auto;" />
+<div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
+  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/logo.png"
+       alt="HA Torque logo" width="336" />
+
+  <a href="https://ko-fi.com/nothing_one" aria-label="Support me on Ko-fi">
+    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi" />
+  </a>
 </div>
 
 # Torque Pro — Home Assistant Integration
