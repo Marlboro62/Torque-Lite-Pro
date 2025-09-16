@@ -16,5 +16,6 @@
     "pint>=0.24"
   ],
   "integration_type": "service",
-  "brand": "torque_pro"
+  "icon": "icons/icon.png",
+  "logo": "icons/logo.png"
 }
