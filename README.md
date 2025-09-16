@@ -5,7 +5,14 @@
 
 # Torque Pro — Home Assistant Integration
 
-« Project not affiliated with the “Torque Lite / Pro” application”. »
+<div style="border:1px solid #f0c36d; background:#fff8e1; padding:12px 16px; border-radius:8px;">
+  <strong>⚠️ Warning — Unofficial Project</strong><br>
+  This project is developed independently and is <strong>not affiliated with, approved by, or endorsed by</strong>
+  the <strong>Torque Lite/Pro</strong> application.<br>
+  <small>“Torque”, “Torque Lite”, and “Torque Pro” are trademarks of their respective owners.</small>
+</div>
+
+---
 
 > **Real‑time push of OBD‑II data from the Android Torque Pro app into Home Assistant.**  
 > Dynamically creates sensors, a per‑vehicle GPS *device tracker*, normalizes units (metric/imperial), translates labels (EN/FR), and exposes a secured HTTP endpoint.
@@ -16,6 +23,15 @@
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
 ![Version](https://img.shields.io/badge/version-2025.09.3-informational)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
+
+---
+
+## 🔌 Required equipment: OBD-II interface
+
+- **OBD2 Bluetooth (ELM327)**
+- Amazon : [OBD2 Bluetooth](https://amzn.to/48bHmPj)
+
+> *Affiliate link: this supports the project at no extra cost to you.*
 
 ---
 
