@@ -1,0 +1,5 @@
+﻿blank_issues_enabled: false
+contact_links:
+  - name: Questions générales
+    url: https://github.com/<owner>/<repo>/discussions
+    about: Pour les sujets non liés à la licence, utilisez Discussions.

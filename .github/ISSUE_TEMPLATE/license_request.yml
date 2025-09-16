@@ -1,0 +1,63 @@
+name: License request
+description: Demander une autorisation écrite (commerciale, redistribution, intégration)
+title: "License request: <Votre société / usage>"
+labels: ["license", "legal"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Merci de remplir les informations ci-dessous pour accélérer le traitement de votre demande.
+  - type: input
+    id: company
+    attributes:
+      label: Organisation / société
+      placeholder: "Ex. ACME Corp"
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: Nom du contact
+      placeholder: "Prénom Nom"
+    validations:
+      required: true
+  - type: input
+    id: email
+    attributes:
+      label: Email professionnel
+      description: "Champ public : évitez les informations sensibles."
+      placeholder: "contact@exemple.com"
+    validations:
+      required: true
+  - type: textarea
+    id: use
+    attributes:
+      label: Usage prévu
+      description: "Décrivez l’usage (commercial, redistribution, intégration, etc.)"
+      placeholder: "Détaillez l’usage, le périmètre, les volumes, etc."
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Portée demandée
+      options:
+        - Usage commercial
+        - Redistribution
+        - Intégration
+        - Autre
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Échéance souhaitée
+      placeholder: "2025-10-15"
+  - type: checkboxes
+    id: agree
+    attributes:
+      label: Conditions
+      options:
+        - label: "Je comprends que cette issue est publique et ne vaut pas accord légal tant qu’un contrat n’est pas signé."
+          required: true
