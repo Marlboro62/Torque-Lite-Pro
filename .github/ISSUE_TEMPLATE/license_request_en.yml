@@ -1,0 +1,63 @@
+name: License request
+description: Request written authorization (commercial use, redistribution, integration)
+title: "License request: <Your company / use case>"
+labels: ["license", "legal"]
+assignees: []
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please fill out the information below to speed up processing your request.
+  - type: input
+    id: company
+    attributes:
+      label: Organization / company
+      placeholder: "e.g., ACME Corp"
+    validations:
+      required: true
+  - type: input
+    id: contact
+    attributes:
+      label: Contact name
+      placeholder: "First Last"
+    validations:
+      required: true
+  - type: input
+    id: email
+    attributes:
+      label: Business email
+      description: "Public field: avoid sensitive information."
+      placeholder: "contact@example.com"
+    validations:
+      required: true
+  - type: textarea
+    id: use
+    attributes:
+      label: Intended use
+      description: "Describe the use (commercial, redistribution, integration, etc.)"
+      placeholder: "Provide details: use case, scope, volumes, etc."
+    validations:
+      required: true
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Requested scope
+      options:
+        - Commercial use
+        - Redistribution
+        - Integration
+        - Other
+    validations:
+      required: true
+  - type: input
+    id: deadline
+    attributes:
+      label: Desired deadline
+      placeholder: "2025-10-15"
+  - type: checkboxes
+    id: agree
+    attributes:
+      label: Conditions
+      options:
+        - label: "I understand this issue is public and does not constitute a legal agreement until a contract is signed."
+          required: true

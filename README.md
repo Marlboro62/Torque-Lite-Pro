@@ -207,7 +207,7 @@ This distribution is subject to the **Written Authorization Required License (LA
 - Any **commercial** use (direct or indirect).
 
 **Full text:** see [`LICENSE`](./LICENSE).  
-**Request authorization:** [open a “License request” issue](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
+**Request authorization:** [open a “License request” issue](../../issues/new?assignees=&labels=license%2Clegal&template=license_request_en.yml&title=License%20request%3A%20).
 
 > *“Torque”, “Torque Lite”, and “Torque Pro” are trademarks of their respective owners. Unofficial project.*
 
