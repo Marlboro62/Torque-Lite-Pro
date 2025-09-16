@@ -1,0 +1,34 @@
+{
+  "title": "Torque Pro",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Torque Pro",
+        "description": "Saisissez l’e-mail utilisé par Torque (il sera filtré côté API).",
+        "data": {
+          "email": "E-mail Torque autorisé",
+          "imperial": "Convertir en unités impériales",
+          "language": "Langue par défaut"
+        }
+      }
+    }
+  },
+  "error": {
+    "email_required": "L’e-mail est requis.",
+    "invalid_email": "Adresse e-mail invalide."
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Torque Pro – Options",
+        "description": "🛰️ Point d’accès :\n/api/torque_pro\n\n🧪 Exemple :\nsession=s1&eml=votre@email&kff1006=48.85&kff1005=2.35&profileName=Ma%20Voiture&v=1.12.70\n\n💡 Astuce :\najoutez &lang=fr ou &lang=en pour forcer la langue.",
+        "data": {
+          "imperial": "Convertir en unités impériales",
+          "language": "Langue par défaut",
+          "session_ttl_seconds": "Durée de rétention des sessions (secondes)",
+          "max_sessions": "Taille maximale du cache de sessions"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,7 @@
+﻿Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+__pycache__/
+*.py[cod]
+*.log

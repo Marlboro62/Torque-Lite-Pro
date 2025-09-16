@@ -1,0 +1,6 @@
+{
+  "name": "Torque Pro",
+  "domains": ["torque_pro"],
+  "country": ["*"],  
+  "render_readme": true
+}

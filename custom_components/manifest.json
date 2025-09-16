@@ -1,0 +1,20 @@
+{
+  "domain": "torque_pro",
+  "name": "Torque Pro",
+  "version": "2025.09.3",
+  "documentation": "https://github.com/Marlboro62/Torque-Pro",
+  "issue_tracker": "https://github.com/Marlboro62/Torque-Pro/issues",
+  "codeowners": [
+    "@Marlboro62"
+  ],
+  "iot_class": "local_push",
+  "config_flow": true,
+  "dependencies": [
+    "http"
+  ],
+  "requirements": [
+    "pint>=0.24"
+  ],
+  "integration_type": "service",
+  "brand": "torque_pro"
+}
