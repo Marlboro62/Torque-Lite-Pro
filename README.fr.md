@@ -183,14 +183,26 @@ Générez un **rapport de diagnostics** depuis l’UI de Home Assistant (les inf
 
 ## 🧾 Licence
 
-Cette distribution est placée sous la **Licence d’Autorisation Écrite Requise — Usage autorisé : Torque Pro ↔ Home Assistant (LAER‑TPHA‑1.0)**.
+Cette distribution est soumise à la **Licence d’Autorisation Écrite Requise (LAER-TPHA-1.0)** — *Usage autorisé :* **Torque Pro ↔ Home Assistant**.
 
-- **Autorisé sans accord préalable** : utiliser ce composant **uniquement** pour connecter l’app Android *Torque Pro* à **Home Assistant** sur votre propre instance, à des fins **non commerciales**.
-- **Tout le reste est interdit sans accord écrit** : reproduction, fork, modification, publication, distribution, intégration dans d’autres projets, hébergement/SaaS, et tout **usage commercial**.
+**TL;DR** : usage **personnel et non commercial** uniquement. Tout autre usage nécessite une **autorisation écrite**.
 
-👉 Lisez le fichier [`LICENSE`](./LICENSE) pour le texte complet.  
-Pour obtenir une **autorisation écrite**, **ouvrez une issue “License request”** :  
-../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20
+### ✅ Autorisé sans accord préalable
+- Installer et utiliser ce composant **sur votre propre instance** de Home Assistant pour connecter l’app Android *Torque Pro*,
+- à des fins **strictement non commerciales**.
+
+### ❌ Interdit sans accord écrit préalable
+- Reproduction, fork ou création d’œuvres dérivées publiées,
+- Modification, publication ou **distribution** du code/binaire,
+- Intégration dans d’autres projets/produits,
+- Hébergement, **SaaS**, marketplaces, images/packs,
+- Tout **usage commercial** (direct ou indirect).
+
+**Texte complet :** voir [`LICENSE`](./LICENSE).  
+**Demander une autorisation :** [ouvrez une issue “License request”](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
+
+> *“Torque”, “Torque Lite” et “Torque Pro” sont des marques appartenant à leurs détenteurs respectifs. Projet non officiel.*
+
 
 
 
