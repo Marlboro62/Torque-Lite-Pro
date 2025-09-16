@@ -199,7 +199,7 @@ Cette distribution est soumise à la **Licence d’Autorisation Écrite Requise 
 - Tout **usage commercial** (direct ou indirect).
 
 **Texte complet :** voir [`LICENSE`](./LICENSE).  
-**Demander une autorisation :** [ouvrez une issue “License request”](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
+**Demander une autorisation :** [ouvrez une issue “Demande de licence”](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
 
 > *“Torque”, “Torque Lite” et “Torque Pro” sont des marques appartenant à leurs détenteurs respectifs. Projet non officiel.*
 
