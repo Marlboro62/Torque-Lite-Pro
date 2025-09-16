@@ -44,15 +44,20 @@ _LANG_LABELS = {
 }
 
 
+def _lang_options_sorted(codes: list[str]) -> list[dict]:
+    opts = [{"label": _LANG_LABELS.get(c, c), "value": c} for c in codes]
+    return sorted(opts, key=lambda o: o["label"].lower())
+
+
 class TorqueFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for Torque Pro."""
 
-    VERSION = 1
+    VERSION = 2
 
     async def async_step_user(self, user_input: dict | None = None):
         """Handle the initial step."""
         codes = _codes_from_supported_langs(SUPPORTED_LANGS)
-        lang_options = [{"label": _LANG_LABELS.get(c, c), "value": c} for c in codes]
+        lang_options = _lang_options_sorted(codes)
 
         errors: dict[str, str] = {}
 
@@ -61,13 +66,22 @@ class TorqueFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
             imperial = bool(user_input.get(CONF_IMPERIAL, False))
             language = user_input.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
 
+            # Validation e-mail côté serveur (en plus du selector)
             if not email:
                 errors[CONF_EMAIL] = "email_required"
-            elif "@" not in email or "." not in email:
-                errors[CONF_EMAIL] = "invalid_email"
+            else:
+                try:
+                    vol.Email()(email)
+                except vol.Invalid:
+                    errors[CONF_EMAIL] = "invalid_email"
 
             if not errors:
-                # Unique ID par e-mail pour permettre plusieurs comptes/configs.
+                # Empêcher un doublon si une ancienne entrée existe sans unique_id
+                for entry in self._async_current_entries():
+                    if str(entry.data.get(CONF_EMAIL, "")).strip().lower() == email:
+                        return self.async_abort(reason="already_configured")
+
+                # Unique ID = e-mail (1 entrée par e-mail)
                 await self.async_set_unique_id(email)
                 self._abort_if_unique_id_configured()
 
@@ -118,7 +132,7 @@ class TorqueOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input: dict | None = None):
         codes = _codes_from_supported_langs(SUPPORTED_LANGS)
-        lang_options = [{"label": _LANG_LABELS.get(c, c), "value": c} for c in codes]
+        lang_options = _lang_options_sorted(codes)
 
         if user_input is not None:
             lang = user_input.get(CONF_LANGUAGE, DEFAULT_LANGUAGE)
@@ -138,23 +152,31 @@ class TorqueOptionsFlowHandler(config_entries.OptionsFlow):
         current_ttl = int(self.config_entry.options.get(CONF_SESSION_TTL, SESSION_TTL_SECONDS))
         current_max = int(self.config_entry.options.get(CONF_MAX_SESSIONS, MAX_SESSIONS))
 
-        data_schema = vol.Schema(
-            {
-                vol.Optional(CONF_IMPERIAL, default=current_imperial): bool,
-                vol.Optional(CONF_LANGUAGE, default=current_language): SelectSelector(
-                    SelectSelectorConfig(
-                        options=lang_options,
-                        mode=SelectSelectorMode.DROPDOWN,
-                    )
-                ),
-                # TTL: 1 minute à 24 h
-                vol.Optional(CONF_SESSION_TTL, default=current_ttl): vol.All(
-                    vol.Coerce(int), vol.Range(min=60, max=86400)
-                ),
-                # Taille: 10 à 1000 sessions
-                vol.Optional(CONF_MAX_SESSIONS, default=current_max): vol.All(
-                    vol.Coerce(int), vol.Range(min=10, max=1000)
-                ),
-            }
-        )
+        # Schéma de base
+        schema_dict: dict = {
+            vol.Optional(CONF_IMPERIAL, default=current_imperial): bool,
+            vol.Optional(CONF_LANGUAGE, default=current_language): SelectSelector(
+                SelectSelectorConfig(
+                    options=lang_options,
+                    mode=SelectSelectorMode.DROPDOWN,
+                )
+            ),
+        }
+
+        # Afficher TTL / MAX seulement si l’utilisateur a activé le mode avancé
+        if self.show_advanced_options:
+            schema_dict.update(
+                {
+                    # TTL: 1 minute à 24 h
+                    vol.Optional(CONF_SESSION_TTL, default=current_ttl): vol.All(
+                        vol.Coerce(int), vol.Range(min=60, max=86400)
+                    ),
+                    # Taille: 10 à 1000 sessions
+                    vol.Optional(CONF_MAX_SESSIONS, default=current_max): vol.All(
+                        vol.Coerce(int), vol.Range(min=10, max=1000)
+                    ),
+                }
+            )
+
+        data_schema = vol.Schema(schema_dict)
         return self.async_show_form(step_id="init", data_schema=data_schema)

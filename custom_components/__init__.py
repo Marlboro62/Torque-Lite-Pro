@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
@@ -30,12 +32,25 @@ from .const import (
 
 _LOGGER: logging.Logger = logging.getLogger(__name__)
 
-async def async_setup(hass, config):
-    hass.http.register_static_path(
-        "/torque_pro", hass.config.path("custom_components/torque_pro/www")
-    )
+
+async def async_setup(hass: HomeAssistant, config: dict) -> bool:
+    """Register static assets once (if folder exists). YAML setup not used."""
+    static_dir = hass.config.path("custom_components/torque_pro/www")
+    # Empêcher un double enregistrement après restart/Reload
+    domain_store: dict[str, Any] = hass.data.setdefault(DOMAIN, {})
+    if not domain_store.get("_static_registered"):
+        if os.path.isdir(static_dir):
+            try:
+                hass.http.register_static_path("/torque_pro", static_dir)
+                _LOGGER.debug("Static path /torque_pro registered from %s", static_dir)
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Static path /torque_pro already registered or failed", exc_info=True)
+        else:
+            _LOGGER.debug("Static dir does not exist: %s", static_dir)
+        domain_store["_static_registered"] = True
     return True
-    
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate old entry data to the latest version.
 
@@ -50,19 +65,13 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     return True
 
 
-async def async_setup(hass: HomeAssistant, config: dict) -> bool:
-    """YAML setup is not supported."""
-    return True
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up this integration via the UI."""
     # Espace de stockage du domaine
-    if DOMAIN not in hass.data:
-        hass.data[DOMAIN] = {}
+    domain_store: dict[str, Any] = hass.data.setdefault(DOMAIN, {})
+    if "initialized" not in domain_store:
         _LOGGER.info(STARTUP_MESSAGE)
-
-    domain_store: dict = hass.data[DOMAIN]
+        domain_store["initialized"] = True
 
     # Données + options (fallback sur data)
     email = entry.data.get(CONF_EMAIL, "")
@@ -108,14 +117,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
 
     # Store par entrée
-    store: dict = {}
+    store: dict[str, Any] = {}
     domain_store[entry.entry_id] = store
 
     # Coordinator (global + par entrée pour compat)
     coordinator = TorqueCoordinator(hass, domain_store["view"], entry)
     domain_store["view"].coordinator = coordinator
     store["coordinator"] = coordinator
-    domain_store["coordinator"] = coordinator  # <- utilisé par sensor.py
+    # Gardé pour compat éventuelle, mais pas nécessaire si les plateformes lisent l’entrée
+    domain_store["coordinator"] = coordinator
 
     # Charger les plateformes
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -128,26 +138,21 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload platforms and detach this entry from the view/coordinator."""
     results = await asyncio.gather(
-        *[
-            hass.config_entries.async_forward_entry_unload(entry, platform)
-            for platform in PLATFORMS
-        ]
+        *[hass.config_entries.async_forward_entry_unload(entry, platform) for platform in PLATFORMS]
     )
     if not all(results):
         return False
 
-    if DOMAIN not in hass.data:
-        return True
-
-    domain_store: dict = hass.data[DOMAIN]
+    domain_store: dict[str, Any] = hass.data.get(DOMAIN, {})
     domain_store.pop(entry.entry_id, None)
 
-    still_has_entries = any(k for k in domain_store.keys() if k != "view" and k != "coordinator")
+    still_has_entries = any(k for k in domain_store.keys() if k not in {"view", "coordinator", "_static_registered"})
     view: TorqueReceiveDataView | None = domain_store.get("view")
 
     if view and not still_has_entries:
-        # On conserve la vue enregistrée (URL vivante) mais on la détache
+        # Détacher la vue (URL reste vivante) et purger l'ancien coordinator global
         view.coordinator = None
+        domain_store.pop("coordinator", None)
         _LOGGER.debug("Torque view kept registered but detached (no active entries).")
 
     return True
@@ -180,7 +185,7 @@ async def async_remove_config_entry_device(
             try:
                 forget(vkey)
                 _LOGGER.debug("Vehicle %s forgotten in coordinator", vkey)
-            except Exception as err:
+            except Exception as err:  # noqa: BLE001
                 _LOGGER.debug("forget_vehicle(%s) failed: %s", vkey, err)
 
     return True

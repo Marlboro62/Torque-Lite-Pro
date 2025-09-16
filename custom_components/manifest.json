@@ -1,8 +1,8 @@
 {
   "domain": "torque_pro",
   "name": "Torque Pro",
-  "version": "2025.09.3",
-  "documentation": "https://github.com/Marlboro62/Torque-Lite-Pro#readme",
+  "version": "2025.09.3.1",
+  "documentation": "https://github.com/Marlboro62/Torque-Lite-Pro",
   "issue_tracker": "https://github.com/Marlboro62/Torque-Lite-Pro/issues",
   "codeowners": ["@Marlboro62"],
   "iot_class": "local_push",

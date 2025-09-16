@@ -6,6 +6,8 @@ from typing import Final
 import json
 import os
 
+from homeassistant.const import Platform
+
 # Nom & domaine
 NAME: Final = "Torque Pro"
 DOMAIN: Final = "torque_pro"
@@ -74,7 +76,7 @@ MAX_SESSIONS: Final = 100
 # --------- Plateformes HA ----------
 DEVICE_TRACKER: Final = "device_tracker"
 SENSOR: Final = "sensor"
-PLATFORMS: Final = [SENSOR, DEVICE_TRACKER]
+PLATFORMS: Final = [Platform.SENSOR, Platform.DEVICE_TRACKER]
 
 # --------- Message de démarrage ----------
 STARTUP_MESSAGE = f"""
@@ -137,13 +139,12 @@ TORQUE_CODES: Final = {
     "11": {"shortName": "throttle_position_manifold", "fullName": "Throttle Position (Manifold)", "unit": "%"},
     "1f": {"shortName": "run_time_since_start", "fullName": "Run time since engine start", "unit": "s"},
     "21": {"shortName": "dist_mil_on", "fullName": "Distance travelled with MIL/CEL lit", "unit": "km"},
-    
+
     # --- FF10xx GPS subset ---
     "ff1001": {"shortName": "gps_spd", "fullName": "Vehicle Speed (GPS)", "unit": "km/h"},
     "ff1005": {"shortName": TORQUE_GPS_LON, "fullName": "GPS Longitude", "unit": "°"},
     "ff1006": {"shortName": TORQUE_GPS_LAT, "fullName": "GPS Latitude", "unit": "°"},
     "ff1010": {"shortName": TORQUE_GPS_ALTITUDE, "fullName": "GPS Altitude", "unit": "m"},
-    "ff1239": {"shortName": TORQUE_GPS_ACCURACY, "fullName": "GPS Accuracy", "unit": "m"},
 
     # ---------- FF12xx – Performance, O2, trajets & divers ----------
     "ff1201": {"shortName": "mpg_instant", "fullName": "Miles Per Gallon(Instant)", "unit": "mpg"},
@@ -175,8 +176,7 @@ TORQUE_CODES: Final = {
     "ff1230": {"shortName": "time_eighth_mile", "fullName": "1/8 mile time", "unit": "s"},
     "ff1237": {"shortName": "spd_diff_gps_obd", "fullName": "GPS vs OBD Speed difference", "unit": "km/h"},
     "ff1238": {"shortName": "voltage_obd_adapter", "fullName": "Voltage (OBD Adapter)", "unit": "V"},
-    "ff1239": {"shortName": TORQUE_GPS_ACCURACY, "fullName": "GPS Accuracy", "unit": "m"},
-    "ff123a": {"shortName": "gps_satellites", "fullName": "GPS Satellites", "unit": "—"},
+    "ff123a": {"shortName": "gps_satellites", "fullName": "GPS Satellites", "unit": None},
     "ff123b": {"shortName": "gps_bearing", "fullName": "GPS Bearing", "unit": "°"},
     "ff1240": {"shortName": "o2_o2l1_wide_eq_ratio", "fullName": "O2 {O2L:1} Wide Range Equivalence Ratio", "unit": "λ"},
     "ff1241": {"shortName": "o2_o2l2_wide_eq_ratio", "fullName": "O2 {O2L:2} Wide Range Equivalence Ratio", "unit": "λ"},
@@ -267,4 +267,4 @@ _CRITICAL_TORQUE_CODES = {
 }
 for _k, _v in _CRITICAL_TORQUE_CODES.items():
     TORQUE_CODES.setdefault(_k, _v)
-# --- end ensure block --
+# --- end ensure block ---

@@ -5,6 +5,8 @@
 - Utilise la base TorqueEntity pour un device propre (attribution, device_info)
 - Conserve *exactement* l'UID historique pour éviter toute migration
 - Fallback si labels_fr n'est pas présent (labels EN)
+- Améliore la déduction du nom d’appareil : si le profil n’a pas (encore) de nom,
+  on relit le Device Registry (si existant) ; sinon on évite le hash brut.
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ from homeassistant.components.sensor import (
 from homeassistant.core import HomeAssistant  # noqa: E402
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
 
@@ -126,15 +129,15 @@ def _suggest_precision(short: str, unit: str | None) -> int | None:
 
 # -------- Valeurs qui doivent retomber à 0 si absentes --------
 _ZERO_DEFAULT_SHORTS = {
-    "trip_distance",  # ff1204
-    "trip_distance_stored",  # ff120c
-    "dist_mil_on",  # 0x21
-    "dist_since_codes_cleared",  # 0x31
-    "trip_time_since_start",  # ff1266
-    "trip_time_stationary",  # ff1267
-    "trip_time_moving",  # ff1268
-    "engine_kw_wheels",  # ff1273 → Puiss. kW (roues)
-    "horsepower_wheels",  # ff1226 → Puiss. roues hp
+    "trip_distance",            # ff1204
+    "trip_distance_stored",     # ff120c
+    "dist_mil_on",              # 0x21
+    "dist_since_codes_cleared", # 0x31
+    "trip_time_since_start",    # ff1266
+    "trip_time_stationary",     # ff1267
+    "trip_time_moving",         # ff1268
+    "engine_kw_wheels",         # ff1273 → Puiss. kW (roues)
+    "horsepower_wheels",        # ff1226 → Puiss. roues hp
 }
 
 
@@ -145,13 +148,7 @@ def _should_zero(short: str, unit: str | None) -> bool:
     if s in _ZERO_DEFAULT_SHORTS:
         return True
     # Règle générique : compteurs de trajet/distance/temps
-    if any(tok in s for tok in ("trip", "dist", "distance", "time")) and u in (
-        "km",
-        "mi",
-        "m",
-        "s",
-        "min",
-    ):
+    if any(tok in s for tok in ("trip", "dist", "distance", "time")) and u in ("km", "mi", "m", "s", "min"):
         return True
     return False
 
@@ -191,12 +188,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
             # Cas 1: ancien schéma (hérité) => "{entry}-{veh}-{short}"
             legacy_prefix = f"{entry.entry_id}-"
-            if uid.startswith(legacy_prefix) and "-" in uid[len(legacy_prefix) :]:
-                suffix = uid[len(legacy_prefix) :]
+            if uid.startswith(legacy_prefix) and "-" in uid[len(legacy_prefix):]:
+                suffix = uid[len(legacy_prefix):]
                 vehicle_id, short = suffix.rsplit("-", 1)
             # Cas 2: éventuel nouveau schéma => f"{DOMAIN}_{entry}_{veh}_{short}"
             elif uid.startswith(f"{DOMAIN}_{entry.entry_id}_"):
-                suffix = uid[len(f"{DOMAIN}_{entry.entry_id}_") :]
+                suffix = uid[len(f"{DOMAIN}_{entry.entry_id}_"):]
                 try:
                     vehicle_id, short = suffix.rsplit("_", 1)
                 except ValueError:
@@ -233,7 +230,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
 
     # 2) Ajout dynamique des futurs capteurs
     if hasattr(coordinator, "set_sensor_adder"):
-
         def _adder(veh_id: str, short: str, meta: dict[str, Any]):
             try:
                 async_add_entities([_make_sensor(coordinator, entry, veh_id, short, meta)])
@@ -252,6 +248,48 @@ def _make_sensor(coordinator, entry: ConfigEntry, vehicle_id: str, short: str, m
     return TorqueSensor(coordinator, entry, vehicle_id, short, name, unit)
 
 
+# ------ Récupération du nom/firmware profil depuis le coordinator ------
+def _profile_name_and_version(coordinator, vehicle_id: str) -> tuple[str, str | None]:
+    """Retourne (nom_profil, version_app) connus pour ce véhicule, avec fallback sain.
+
+    Stratégie :
+    1) d’abord le nom du profil reçu dans la dernière trame (cars[veh]['profile']['Name'])
+    2) sinon, essayer le Device Registry (peut déjà contenir un nom humain si le device a été créé)
+    3) sinon, un nom générique « Vehicle ABCDEF » (évite d’utiliser le hash brut)
+    """
+    try:
+        cars = getattr(coordinator, "cars", {}) or {}
+        prof = (cars.get(vehicle_id) or {}).get("profile", {}) or {}
+        name = (prof.get("Name") or prof.get("name") or "").strip()
+        ver = prof.get("version") or None
+    except Exception:
+        name, ver = "", None
+
+    def _is_poor(n: str) -> bool:
+        if not n:
+            return True
+        s = n.strip()
+        return (not s) or (s.lower() in {"vehicle", "véhicule"}) or (s == vehicle_id)
+
+    # 2) Lire le Device Registry si le nom de profil est absent/peu utile
+    if _is_poor(name):
+        try:
+            dev_reg = dr.async_get(coordinator.hass)
+            dev = dev_reg.async_get_device(identifiers={(DOMAIN, vehicle_id)})
+            if dev and (dev.name or dev.model):
+                name = (dev.name or dev.model or "").strip()
+        except Exception:  # noqa: BLE001
+            pass
+
+    # 3) Dernier filet de sécurité : éviter un nom basé sur le hash complet
+    if _is_poor(name):
+        short_id = (vehicle_id or "").strip()
+        short_id = short_id[:6] if short_id else "unknown"
+        name = f"Vehicle {short_id}"
+
+    return name, ver
+
+
 class TorqueSensor(TorqueEntity, SensorEntity, RestoreEntity):
     """Capteur dynamique alimenté par le coordinator Torque Pro."""
 
@@ -266,15 +304,22 @@ class TorqueSensor(TorqueEntity, SensorEntity, RestoreEntity):
         name: str,
         unit: str | None,
     ) -> None:
-        # DeviceInfo minimal avec identifiant stable (DOMAIN, vehicle_id)
-        device = DeviceInfo(identifiers={(DOMAIN, vehicle_id)})
+        # DeviceInfo avec le nom du profil pour de bons entity_id
+        car_name, car_ver = _profile_name_and_version(coordinator, vehicle_id)
+        device = DeviceInfo(
+            identifiers={(DOMAIN, vehicle_id)},
+            manufacturer="Torque Pro",
+            model=car_name,
+            name=car_name,        # <<< utilisé par HA pour préfixer les entity_id
+            sw_version=car_ver,
+        )
         super().__init__(coordinator, config_entry, short, device)
 
         # IMPORTANT: conserver l'UID historique pour éviter une migration
         self._attr_unique_id = f"{config_entry.entry_id}-{vehicle_id}-{short}"
 
         # Identifiants locaux
-        self._car_id = vehicle_id  # sécurité : utilisé par native_value
+        self._car_id = vehicle_id
         self._vehicle_id = vehicle_id
         self._short = short
 
@@ -424,6 +469,8 @@ class TorqueSensor(TorqueEntity, SensorEntity, RestoreEntity):
         # Boost / turbo / MAP
         if "boost" in s or "turbo" in s or "manifold" in s or s.endswith("_map"):
             return "mdi:car-turbocharger"
+
+        # MAF / débit d'air
         if s == "mass_air_flow_rate" or "maf" in s or ("air" in s and ("flow" in s or "debit" in s or "rate" in s)):
             return "mdi:air-filter"
 

@@ -11,11 +11,14 @@
           "language": "Langue par défaut"
         }
       }
+    },
+    "error": {
+      "email_required": "L’e-mail est requis.",
+      "invalid_email": "Adresse e-mail invalide."
+    },
+    "abort": {
+      "already_configured": "Cet e-mail est déjà configuré."
     }
-  },
-  "error": {
-    "email_required": "L’e-mail est requis.",
-    "invalid_email": "Adresse e-mail invalide."
   },
   "options": {
     "step": {

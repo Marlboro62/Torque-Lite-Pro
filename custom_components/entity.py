@@ -12,12 +12,13 @@ Sensors and trackers can subclass this and override presentation details
 """
 from __future__ import annotations
 
-from typing import Any, Iterable, Optional, Tuple
+from typing import Any, Iterable, Tuple, Optional
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers import device_registry as dr
 
 from .const import DOMAIN
 
@@ -72,11 +73,22 @@ class TorqueEntity(CoordinatorEntity):
             _LOGGER.debug("Bad identifiers payload on DeviceInfo/dict identifiers")
         return None
 
+    @staticmethod
+    def _is_poor_name(name: str | None, car_id: str) -> bool:
+        if not name:
+            return True
+        s = name.strip()
+        return (not s) or (s.lower() in {"vehicle", "véhicule"}) or (s == car_id)
+
     @property
     def device_info(self) -> DeviceInfo | dict:
-        """DeviceInfo for the vehicle, with dynamic name/version from the profile.
+        """DeviceInfo for the vehicle, with robust name/version fallbacks.
 
-        Works whether the stored device_info is a DeviceInfo or a plain dict.
+        Priority:
+        1) profile Name if valid
+        2) name/model from stored device_info (passed at __init__)
+        3) name/model from Device Registry (if the device already exists)
+        4) synthetic "Vehicle ABCDEF" (short car_id) to avoid hash-y names
         """
         # Identifiers (support both DeviceInfo and dict)
         idents = getattr(self._device_info, "identifiers", None)
@@ -85,19 +97,53 @@ class TorqueEntity(CoordinatorEntity):
         if not idents:
             idents = {(DOMAIN, self._car_id)}
 
+        # Candidates from stored device_info
+        stored_name = getattr(self._device_info, "name", None)
+        if stored_name is None and isinstance(self._device_info, dict):
+            stored_name = self._device_info.get("name")
+
+        stored_model = getattr(self._device_info, "model", None)
+        if stored_model is None and isinstance(self._device_info, dict):
+            stored_model = self._device_info.get("model")
+
+        stored_sw = getattr(self._device_info, "sw_version", None)
+        if stored_sw is None and isinstance(self._device_info, dict):
+            stored_sw = self._device_info.get("sw_version")
+
         prof = self.coordinator_profile() or {}
+        raw_name = (prof.get("Name") or prof.get("name") or "").strip()
+        sw_ver = prof.get("version") or stored_sw
+
+        # Choose effective name
+        if not self._is_poor_name(raw_name, self._car_id):
+            effective_name = raw_name
+        else:
+            effective_name = (stored_name or stored_model or "").strip()
+
+            # Last resort: read Device Registry (may already hold a human name)
+            if self._is_poor_name(effective_name, self._car_id):
+                try:
+                    dev_reg = dr.async_get(self.hass)
+                    dev = dev_reg.async_get_device(identifiers={(DOMAIN, self._car_id)})
+                    if dev and (dev.name or dev.model):
+                        effective_name = (dev.name or dev.model or "").strip()
+                except Exception:  # noqa: BLE001
+                    pass
+
+        # Synthetic fallback (avoid exposing the raw hash)
+        if self._is_poor_name(effective_name, self._car_id):
+            short_id = (self._car_id or "").strip()[:6] or "unknown"
+            effective_name = f"Vehicle {short_id}"
+
         out: dict[str, Any] = {
             "identifiers": idents,
             "manufacturer": "Torque Pro",
         }
-
-        name = prof.get("Name") or prof.get("name")
-        if name:
-            out["name"] = name
-
-        ver = prof.get("version")
-        if ver:
-            out["sw_version"] = ver
+        if effective_name:
+            out["name"] = effective_name
+            out["model"] = effective_name
+        if sw_ver:
+            out["sw_version"] = sw_ver
 
         return out
 
