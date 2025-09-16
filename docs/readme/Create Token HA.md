@@ -9,9 +9,6 @@ A **Long‑Lived Access Token (LLAT)** is an API access token tied to your Home 
 ## Table of contents
 - [Prerequisites](#prerequisites)
 - [Create a token (UI)](#create-a-token-ui)
-- [Store the token safely](#store-the-token-safely)
-- [Use the token (REST examples)](#use-the-token-rest-examples)
-- [Use the token (WebSocket example)](#use-the-token-websocket-example)
 - [Rotate / revoke a token](#rotate--revoke-a-token)
 - [Troubleshooting](#troubleshooting)
 - [FAQ](#faq)
