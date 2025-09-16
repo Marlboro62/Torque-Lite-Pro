@@ -2,8 +2,8 @@
   "domain": "torque_pro",
   "name": "Torque Pro",
   "version": "2025.09.3",
-  "documentation": "https://github.com/Marlboro62/Torque-Pro",
-  "issue_tracker": "https://github.com/Marlboro62/Torque-Pro/issues",
+  "documentation": "https://github.com/Marlboro62/Torque-Lite-Pro",
+  "issue_tracker": "https://github.com/Marlboro62/Torque-Lite-Pro/issues",
   "codeowners": [
     "@Marlboro62"
   ],
