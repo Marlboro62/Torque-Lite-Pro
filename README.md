@@ -5,7 +5,8 @@
 > **Real‑time push of OBD‑II data from the Android Torque Pro app into Home Assistant.**  
 > Dynamically creates sensors, a per‑vehicle GPS *device tracker*, normalizes units (metric/imperial), translates labels (EN/FR), and exposes a secured HTTP endpoint.
 
-*[French version]*: see **README.fr.md** 
+*[French version]*: see [README.fr.md](./README.fr.md)
+
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
 ![Version](https://img.shields.io/badge/version-2025.09.3-informational)
