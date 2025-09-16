@@ -1,6 +1,6 @@
 <div style="text-align: center;">
   <br>
-  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Pro/main/docs/images/logo.png" alt="HA Tracker logo" width="336" style="display: block; margin: 0 auto;" />
+  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/logo.png" alt="HA Torque logo" width="336" style="display: block; margin: 0 auto;" />
 </div>
 
 # Torque Pro — Intégration Home Assistant 🇫🇷
@@ -10,7 +10,7 @@
 > **Push temps réel des données OBD-II depuis l’app Android Torque Pro vers Home Assistant.**  
 > Crée dynamiquement les capteurs, un *device tracker* GPS par véhicule, normalise les unités (métrique/impérial), traduit les libellés (FR/EN) et expose un endpoint HTTP sécurisé.
 
-*[English version]*: see [README.md](./README.md)
+*[English version]*: voir [README.md](./README.md)
  
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
