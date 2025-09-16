@@ -1,3 +1,8 @@
+<div style="text-align: center;">
+  <br>
+  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Pro/main/docs/images/logo.png" alt="HA Tracker logo" width="336" style="display: block; margin: 0 auto;" />
+</div>
+
 # Torque Pro — Intégration Home Assistant 🇫🇷
 
 « Projet non affilié à l’application “Torque Lite / Pro”. »
