@@ -42,10 +42,10 @@ A **Long‑Lived Access Token (LLAT)** is an API access token tied to your Home 
 
 ### Screenshots
 
-![Create Token / Security tab](images/create-token.png)
-![Name the token](images/name-token.png)
-![Copy the token](images/key-token.png)
-![Optional QR code](images/qrcode-key-token.png)
+![Create Token / Security tab](https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/Token/Create%20Token.png)
+![Name the token](https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/Token/Name%20Token.png)
+![Copy the token](https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/Token/Key%20Token.png)
+![Optional QR code](https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/Token/QRCode%20Key%20Token.png)
 
 ---
 
