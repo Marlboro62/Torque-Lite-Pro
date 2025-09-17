@@ -26,7 +26,7 @@
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
-![Version](https://img.shields.io/badge/version-2025.09.3-informational)
+![Version](https://img.shields.io/badge/version-2025.09.3.1-informational)
 
 ---
 
@@ -229,3 +229,4 @@ Si vous aimez ce projet, vous pouvez me soutenir ici :
 ## 📄 Changelog (extrait)
 
 - **2025.09.3** — Version manifest, nettoyage robustesse API/coordonnées, i18n FR, diagnostics renforcés.
+- **2025.09.3.1** — Routage e-mail multi-entrées, ingestion métrique native (annotation de préférence d’unités), préservation des unique_id hérités, vue HTTP persistante (inactive → 404), correctif de parsing de la version de l’application.

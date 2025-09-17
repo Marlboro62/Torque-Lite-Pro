@@ -25,7 +25,7 @@
 
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
-![Version](https://img.shields.io/badge/version-2025.09.3-informational)
+![Version](https://img.shields.io/badge/version-2025.09.3.1-informational)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
 
 ---
@@ -226,3 +226,4 @@ This distribution is subject to the **Written Authorization Required License (LA
 ## 📄 Changelog (excerpt)
 
 - **2025.09.3** — Manifest versioning, API/coordinate robustness cleanup, FR i18n, hardened diagnostics.
+- **2025.09.3.1** — Multi-entry email routing, metric-native ingestion (unit preference annotation), legacy unique_id preservation, persistent HTTP view (inactive 404), app version parsing fix.
