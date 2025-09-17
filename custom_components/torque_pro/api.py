@@ -4,7 +4,8 @@
 - Expose /api/torque_pro (auth required by default)
 - Parses Torque Pro GET/POST uploads
 - Maintains an in-memory LRU of recent sessions (TTL + size cap)
-- Forwards normalized sessions to the Coordinator (if attached)
+- Keeps native metric units at ingestion; only annotates user unit preference
+- Forwards normalized sessions to the proper Coordinator based on email (multi-entry routing)
 """
 from __future__ import annotations
 
@@ -153,7 +154,7 @@ def _extract_profile_name(q: Dict[str, str]) -> str:
 
 
 # -----------------------------
-# Conversion d'unités (Impérial)
+# Unit conversion helpers (kept for future use, not applied at ingestion)
 # -----------------------------
 try:  # pragma: no cover
     import pint  # type: ignore
@@ -170,7 +171,7 @@ except Exception:  # noqa: BLE001
         raise RuntimeError("pint not available")
 
 
-# Table compacte: "unité source" -> ("unité cible", fonction de conversion)
+# Table compact (not used during ingestion anymore)
 _CONV: dict[str, Tuple[str, Callable[[float], float]]] = {
     "km/h": ("mph", (lambda v: _conv_with_pint(v, "kilometer/hour", "mile/hour")) if _UREG else (lambda v: v * 0.621371)),
     "km": ("mi", (lambda v: _conv_with_pint(v, "kilometer", "mile")) if _UREG else (lambda v: v * 0.621371)),
@@ -187,22 +188,7 @@ _CONV: dict[str, Tuple[str, Callable[[float], float]]] = {
     "kW": ("hp", (lambda v: _conv_with_pint(v, "kilowatt", "horsepower")) if _UREG else (lambda v: v * 1.34102209)),
 }
 
-
-def _apply_unit_preferences(values: Dict[str, Any], meta: Dict[str, Dict[str, Any]]) -> None:
-    """If imperial option is active, convert numeric values in-place and their units."""
-    for short, m in meta.items():
-        unit = (m.get("unit") or "").strip()
-        if not unit or unit not in _CONV:
-            continue
-        val = values.get(short)
-        if not isinstance(val, Number):
-            continue
-        target_unit, func = _CONV[unit]
-        try:
-            values[short] = func(float(val))
-            m["unit"] = target_unit
-        except Exception:  # noqa: BLE001
-            continue
+# NOTE: we intentionally DO NOT apply conversions at ingestion anymore.
 
 
 # ---- s -> min pour les temps de trajet ----
@@ -296,13 +282,14 @@ class TorqueReceiveDataView(HomeAssistantView):
     name = "api:torque_pro"
     requires_auth = True  # set to False only if your app cannot send token
 
-    coordinator: Any | None = None  # attached by __init__.py
+    # NOTE: old single-coordinator attachment kept for backward compat, not used in routing
+    coordinator: Any | None = None
 
     def __init__(
         self,
         hass: HomeAssistant,
         *,
-        email_filter: str | None = None,
+        email_filter: str | None = None,  # kept for backward compat; ignored in multi-entry mode
         default_language: str = DEFAULT_LANGUAGE,
         imperial_units: bool = False,
         # runtime memory-scaling (from options)
@@ -310,6 +297,7 @@ class TorqueReceiveDataView(HomeAssistantView):
         max_sessions: int | None = None,
     ) -> None:
         self.hass = hass
+        # legacy per-view fields (used only as fallback if no route exists)
         self.email = (email_filter or "").strip()
         self.lang = _pick_lang(default_language)
         self.imperial = bool(imperial_units)
@@ -322,6 +310,76 @@ class TorqueReceiveDataView(HomeAssistantView):
         # Mémoire des derniers bons noms
         self._last_name_by_email: Dict[str, str] = {}
         self._last_name_by_id: Dict[str, str] = {}
+
+        # -------- Multi-entry routing --------
+        # entry_id -> {"coordinator": ..., "email": str, "imperial": bool, "lang": str}
+        self._entry_routes: dict[str, dict[str, Any]] = {}
+        # email_lower -> entry_id
+        self._email_to_entry: dict[str, str] = {}
+
+        # Vue HTTP persistante : active tant qu'au moins une route existe
+        self._active: bool = True
+
+    # -------- Routing helpers (multi-entry) --------
+    def upsert_route(
+        self,
+        entry_id: str,
+        *,
+        email: str | None,
+        coordinator: Any,
+        imperial: bool,
+        lang: str,
+    ) -> None:
+        """Register/refresh a route for a config entry."""
+        email_norm = (email or "").strip().lower()
+        prev = self._entry_routes.get(entry_id)
+        if prev and prev.get("email"):
+            self._email_to_entry.pop(prev["email"], None)
+
+        self._entry_routes[entry_id] = {
+            "coordinator": coordinator,
+            "email": email_norm,
+            "imperial": bool(imperial),
+            "lang": _pick_lang(lang),
+        }
+        if email_norm:
+            self._email_to_entry[email_norm] = entry_id
+
+        # Activer la vue dès qu'au moins une route est présente
+        self._active = True
+
+    def remove_route(self, entry_id: str) -> None:
+        """Unregister a route when a config entry is unloaded."""
+        prev = self._entry_routes.pop(entry_id, None)
+        if prev and prev.get("email"):
+            self._email_to_entry.pop(prev["email"], None)
+        # Désactiver la vue si plus aucune entrée n'est configurée
+        if not self._entry_routes:
+            self._active = False
+
+    def set_active(self, active: bool) -> None:
+        """Activer/désactiver explicitement la vue (optionnel)."""
+        self._active = bool(active)
+
+    def is_active(self) -> bool:
+        return self._active
+
+    def _pick_route(self, email: str | None) -> dict[str, Any] | None:
+        """Choose a route based on email; if only one route exists, allow missing email."""
+        key = (email or "").strip().lower()
+        if key and key in self._email_to_entry:
+            return self._entry_routes.get(self._email_to_entry[key])
+        if not key and len(self._entry_routes) == 1:
+            return next(iter(self._entry_routes.values()))
+        # As a final legacy fallback, if no routes exist but a legacy coordinator/email is set
+        if not self._entry_routes and (self.coordinator or self.email):
+            return {
+                "coordinator": self.coordinator,
+                "email": (self.email or "").strip().lower(),
+                "imperial": self.imperial,
+                "lang": self.lang,
+            }
+        return None
 
     # -------------------------
     # Housekeeping
@@ -351,15 +409,22 @@ class TorqueReceiveDataView(HomeAssistantView):
     # -------------------------
     # Core parsing
     # -------------------------
-    def _parse_fields(self, q: Dict[str, str], lang: str) -> Dict[str, Any] | None:
+    @staticmethod
+    def _extract_app_version(q: Dict[str, str]) -> str:
+        """Prefer explicit app version keys; ignore protocol 'v'/'ver' unless semver-like."""
+        for k in ("appVersion", "app_version", "apkVersion", "versionName", "version"):
+            v = str(q.get(k, "")).strip()
+            if v:
+                return v
+        for k in ("ver", "v"):
+            v = str(q.get(k, "")).strip()
+            if v and any(ch in v for ch in ".-"):
+                return v
+        return ""
+
+    def _parse_fields(self, q: Dict[str, str], lang: str, *, imperial_override: bool | None = None) -> Dict[str, Any] | None:
         """Parse Torque query-string/form-data into a normalized session dict."""
         eml = (q.get("eml") or q.get("email") or "").strip()
-        if self.email and eml and eml.lower() != self.email.lower():
-            _LOGGER.debug("Email mismatch: got %s, expected %s", eml, self.email)
-            return None
-        if self.email and not eml:
-            _LOGGER.debug("Missing email in payload while email filter is set")
-            return None
 
         session_id = (q.get("session") or "").strip()
         if not session_id:
@@ -371,19 +436,13 @@ class TorqueReceiveDataView(HomeAssistantView):
         # Extraction robuste du nom de profil
         profile_name = _extract_profile_name(q)
 
-        # App version (many possible keys across Torque variants)
-        app_version = (
-            (
-                q.get("appVersion")
-                or q.get("app_version")
-                or q.get("apkVersion")
-                or q.get("versionName")
-                or q.get("version")
-                or q.get("ver")
-                or q.get("v")
-                or ""
-            ).strip()
-        )
+        # App version (prefer explicit keys; don't treat bare 'v=9' as app version)
+        app_version = self._extract_app_version(q)
+        if (q.get("v") or q.get("ver")) and not app_version:
+            _LOGGER.debug(
+                "Ignoring protocol version v=%s/ver=%s (no app version provided)",
+                q.get("v"), q.get("ver")
+            )
 
         # Optional direct GPS fields alongside FF10xx PIDs
         lat_direct = _parse_number(q.get("lat"))
@@ -457,6 +516,10 @@ class TorqueReceiveDataView(HomeAssistantView):
         if not profile_name:
             profile_name = f"Vehicle {session_id[:6]}"
 
+        # Preference d'unité (annotation seulement)
+        imperial_flag = self.imperial if imperial_override is None else bool(imperial_override)
+        unit_preference = "imperial" if imperial_flag else "metric"
+
         profile = {
             "Name": profile_name,
             "Id": vehicle_id or slugify(profile_name),
@@ -465,14 +528,15 @@ class TorqueReceiveDataView(HomeAssistantView):
         if app_version:
             profile["version"] = app_version
 
-        # Conversions d'unités
-        if self.imperial:
-            _apply_unit_preferences(values, meta)
+        # IMPORTANT: Pas de conversion impériale à l’ingestion.
+        # Les unités de 'meta' restent telles que déclarées dans TORQUE_CODES (métriques).
+        # Les entités HA feront la conversion d'affichage selon la préférence globale HA
+        # (ou en utilisant 'unit_preference' ci-dessous si tu veux une logique avancée ailleurs).
 
         # s -> min pour les temps de trajet
         _normalize_runtime_units(values, meta)
 
-        # kpl/mpg <-> L/100km
+        # kpl/mpg <-> L/100km (synthèse utile, ne casse pas le natif)
         _synth_economy(values, meta, lang)
 
         # Drop any remaining non-finite numerics
@@ -491,6 +555,7 @@ class TorqueReceiveDataView(HomeAssistantView):
             "meta": meta,
             "unknown": unknown,
             "lang": lang,
+            "unit_preference": unit_preference,  # <-- annotation (no conversion done)
         }
 
         # Mémoriser le bon nom pour les futures trames sans nom
@@ -503,9 +568,8 @@ class TorqueReceiveDataView(HomeAssistantView):
 
         return session
 
-    async def _async_publish_data(self, session: Dict[str, Any]) -> None:
-        """Publish the session to the coordinator if present (handles sync/async)."""
-        coordinator = getattr(self, "coordinator", None)
+    async def _async_publish_data(self, session: Dict[str, Any], coordinator: Any | None) -> None:
+        """Publish the session to the given coordinator if present (handles sync/async)."""
         if coordinator:
             upd = getattr(coordinator, "update_from_session", None)
             if callable(upd):
@@ -519,7 +583,7 @@ class TorqueReceiveDataView(HomeAssistantView):
             else:
                 _LOGGER.debug("Coordinator has no 'update_from_session' method")
         else:
-            _LOGGER.debug("No coordinator attached to view; session not forwarded")
+            _LOGGER.debug("No coordinator resolved for session; not forwarded")
 
         self.hass.data.setdefault(DOMAIN, {})["last_session"] = session
 
@@ -529,14 +593,27 @@ class TorqueReceiveDataView(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Handle GET /api/torque_pro."""
         try:
+            # Vue persistante mais inactive : pas d'entrée configurée → 404
+            if not self._active:
+                _LOGGER.debug("Torque Pro view inactive (no config entries); returning 404.")
+                return web.Response(status=404, text="Not Found")
+
             self._cleanup_sessions()
             q = dict(request.query)
-            lang = _pick_lang(q.get("lang") or q.get("language") or self.lang)
-            session = self._parse_fields(q, lang)
+
+            # route selection based on email
+            eml = (q.get("eml") or q.get("email") or "").strip()
+            route = self._pick_route(eml)
+            if route is None:
+                _LOGGER.debug("No matching route for email=%s; IGNORE", eml or "<none>")
+                return web.Response(text="IGNORED")
+
+            lang = _pick_lang(q.get("lang") or q.get("language") or route["lang"])
+            session = self._parse_fields(q, lang, imperial_override=route["imperial"])
             if session is None:
                 return web.Response(text="IGNORED")
             self._upsert_and_touch(session)
-            await self._async_publish_data(session)
+            await self._async_publish_data(session, route.get("coordinator"))
             return web.Response(text="OK!")
         except Exception as err:  # noqa: BLE001
             _LOGGER.exception("Error handling Torque Pro GET: %s", err)
@@ -545,17 +622,29 @@ class TorqueReceiveDataView(HomeAssistantView):
     async def post(self, request: web.Request) -> web.Response:
         """Some Torque Pro variants upload via POST (x-www-form-urlencoded)."""
         try:
+            # Vue persistante mais inactive : pas d'entrée configurée → 404
+            if not self._active:
+                _LOGGER.debug("Torque Pro view inactive (no config entries); returning 404.")
+                return web.Response(status=404, text="Not Found")
+
             self._cleanup_sessions()
             data: Dict[str, str] = {}
             if request.can_read_body:
                 form = await request.post()
                 data = {k: str(v) for k, v in form.items()}
-            lang = _pick_lang(data.get("lang") or data.get("language") or self.lang)
-            session = self._parse_fields(data, lang)
+
+            eml = (data.get("eml") or data.get("email") or "").strip()
+            route = self._pick_route(eml)
+            if route is None:
+                _LOGGER.debug("No matching route for email=%s; IGNORE", eml or "<none>")
+                return web.Response(text="IGNORED")
+
+            lang = _pick_lang(data.get("lang") or data.get("language") or route["lang"])
+            session = self._parse_fields(data, lang, imperial_override=route["imperial"])
             if session is None:
                 return web.Response(text="IGNORED")
             self._upsert_and_touch(session)
-            await self._async_publish_data(session)
+            await self._async_publish_data(session, route.get("coordinator"))
             return web.Response(text="OK!")
         except Exception as err:  # noqa: BLE001
             _LOGGER.exception("Error handling Torque Pro POST: %s", err)

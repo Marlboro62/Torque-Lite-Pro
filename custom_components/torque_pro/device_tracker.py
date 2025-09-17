@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Device tracker for Torque Pro."""
+"""Device tracker for Torque Pro (stable unique_id + migration via TorqueEntity)."""
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional, Dict, Any
@@ -46,7 +46,14 @@ async def async_setup_entry(
     coordinator: "TorqueCoordinator" = hass.data[DOMAIN][entry.entry_id]["coordinator"]
     coordinator.async_add_device_tracker = async_add_entities
 
-    # Restaurer les trackers déjà présents dans le Device Registry
+    # Ensure the coordinator has a 'tracked' set to avoid duplicates
+    try:
+        if not hasattr(coordinator, "tracked") or coordinator.tracked is None:
+            coordinator.tracked = set()
+    except Exception:  # noqa: BLE001
+        coordinator.tracked = set()
+
+    # Restore trackers from the Device Registry (one per Torque vehicle device)
     dev_reg = dr.async_get(hass)
     devices = [
         device
@@ -57,7 +64,7 @@ async def async_setup_entry(
 
     restored_entities: list[TorqueDeviceTracker] = []
     for device in devices:
-        # Récupère le car_id depuis les identifiers du device
+        # Get car_id from device identifiers
         car_id: Optional[str] = None
         for dom, ident in device.identifiers:
             if dom == DOMAIN:
@@ -65,13 +72,16 @@ async def async_setup_entry(
                 break
 
         if car_id:
-            # Marque comme déjà suivi pour empêcher le coordinator d'en créer un doublon
-            coordinator.tracked.add(f"{car_id}:{ENTITY_GPS}")
+            # Mark as tracked to prevent coordinator from creating a duplicate
+            try:
+                coordinator.tracked.add(f"{car_id}:{ENTITY_GPS}")
+            except Exception:  # noqa: BLE001
+                _LOGGER.debug("Unable to mark %s:%s as tracked", car_id, ENTITY_GPS)
 
         _LOGGER.debug("Restoring device_tracker for %s", device.name or device.model)
         device_info = DeviceInfo(
             identifiers=device.identifiers,
-            manufacturer=device.manufacturer,
+            manufacturer=device.manufacturer or "Torque Pro",
             model=device.model,
             name=device.name,
             sw_version=device.sw_version,
@@ -86,17 +96,17 @@ class TorqueDeviceTracker(TorqueEntity, TrackerEntity, RestoreEntity):
     """Represent a tracked device."""
 
     _attr_icon = GPS_ICON
-    _attr_has_entity_name = True  # le nom affiché = "<Device name> GPS"
+    _attr_has_entity_name = True  # display name = "<Device name> GPS"
 
     def __init__(self, coordinator: "TorqueCoordinator", config_entry: ConfigEntry, device: DeviceInfo):
+        # Base TorqueEntity sets a **stable** unique_id (DOMAIN-vehicle-gps) and
+        # migrates legacy entry_id-based unique_ids in async_added_to_hass.
         super().__init__(coordinator, config_entry, ENTITY_GPS, device)
-        # Nom court de l'entité (le Device aura le nom du profil via device_info)
+        # Human-friendly entity name; device name comes from device_info/profile
         self._attr_name = "GPS"
-        # UID historique (comme les sensors) : "{entry}-{veh}-{short}"
-        self._attr_unique_id = f"{config_entry.entry_id}-{self._car_id}-{ENTITY_GPS}"
         self._restored_state: Optional[Dict[str, Any]] = None
 
-    # ---- Propriétés device_tracker ----
+    # ---- Tracker properties ----
     @property
     def battery_level(self) -> Optional[int]:
         """Return the battery level of the device (unknown)."""
@@ -159,10 +169,10 @@ class TorqueDeviceTracker(TorqueEntity, TrackerEntity, RestoreEntity):
                 return None
         return None
 
-    # ---- Attributs supplémentaires ----
+    # ---- Extra attributes ----
     @property
     def extra_state_attributes(self) -> Dict[str, Any] | None:
-        """Expose altitude, vitesse et horaire GPS en attributs supplémentaires."""
+        """Expose altitude, speed and GPS time as extra attributes."""
         attrs: Dict[str, Any] = {}
 
         # Altitude
@@ -178,8 +188,7 @@ class TorqueDeviceTracker(TorqueEntity, TrackerEntity, RestoreEntity):
             except (ValueError, TypeError):
                 pass
 
-        # Vitesse : préfère GPS, puis OBD, puis champ "speed" si présent
-        # (Torque envoie généralement 'gps_spd' (FF1001) et 'speed_obd' (0x0D))
+        # Speed: prefer GPS, then OBD, then generic "speed"
         spd = (
             self.coordinator.get_value(self._car_id, "gps_spd")
             or self.coordinator.get_value(self._car_id, "speed_obd")
@@ -196,7 +205,7 @@ class TorqueDeviceTracker(TorqueEntity, TrackerEntity, RestoreEntity):
             except (ValueError, TypeError):
                 pass
 
-        # Horodatage GPS (si exposé par Torque)
+        # GPS timestamp (if provided by Torque)
         gps_time = self.coordinator.get_value(self._car_id, "time")
         if gps_time is not None:
             try:
@@ -211,10 +220,10 @@ class TorqueDeviceTracker(TorqueEntity, TrackerEntity, RestoreEntity):
 
         return attrs or None
 
-    # ---- Restauration de l'état (au démarrage) ----
+    # ---- State restoration (on startup) ----
     async def async_added_to_hass(self) -> None:
-        """Call when entity about to be added to Home Assistant."""
-        await super().async_added_to_hass()
+        """Called when entity is about to be added to Home Assistant."""
+        await super().async_added_to_hass()  # handles UID migration in base class
         state = await self.async_get_last_state()
         if state is None:
             _LOGGER.debug("No previous state for %s", self.entity_id)

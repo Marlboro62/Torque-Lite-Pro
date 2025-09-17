@@ -1,9 +1,9 @@
 # -*- coding: utf-8 -*-
-"""Sensor platform for Torque Pro (compatible unique_id + FR fallback).
+"""Sensor platform for Torque Pro (stable unique_id + FR fallback).
 
-- Restauration compatible avec l'ancien schéma d'UID ("{entry}-{veh}-{short}")
-- Utilise la base TorqueEntity pour un device propre (attribution, device_info)
-- Conserve *exactement* l'UID historique pour éviter toute migration
+- **Passe à un unique_id stable** indépendant de entry_id : f"{DOMAIN}-{vehicle_id}-{short}"
+- Migration des anciens UIDs assurée par la base TorqueEntity (voir entity.py)
+- Utilise TorqueEntity pour un device propre (attribution, device_info)
 - Fallback si labels_fr n'est pas présent (labels EN)
 - Améliore la déduction du nom d’appareil : si le profil n’a pas (encore) de nom,
   on relit le Device Registry (si existant) ; sinon on évite le hash brut.
@@ -22,6 +22,7 @@ from homeassistant.components.sensor import (
 from homeassistant.core import HomeAssistant  # noqa: E402
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers import entity_registry as er
+    # utilisé pour restaurer les entités existantes (détection des UIDs anciens/nouveaux)
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -168,12 +169,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
     seen: set[str] = set()  # pour dédupliquer par unique_id
 
     def _push(e: "TorqueSensor") -> None:
+        # Déduplique sur l'UID STABLE (défini par TorqueEntity)
         if e.unique_id in seen:
             return
         seen.add(e.unique_id)  # type: ignore[arg-type]
         entities.append(e)
 
     # 0) Restauration depuis le registre d'entités (entités connues)
+    #    On accepte l'ancien schéma (entry_id-based) ET le nouveau schéma stable.
     try:
         ent_reg = er.async_get(hass)
         for ent in ent_reg.entities.values():
@@ -185,20 +188,34 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry, async_add_e
                 continue  # nécessite DOMAIN == "torque_pro" dans const.py
 
             uid = ent.unique_id or ""
+            vehicle_id = None
+            short = None
 
-            # Cas 1: ancien schéma (hérité) => "{entry}-{veh}-{short}"
+            # --- Cas 1: ancien schéma (hérité) => "{entry}-{veh}-{short}"
             legacy_prefix = f"{entry.entry_id}-"
             if uid.startswith(legacy_prefix) and "-" in uid[len(legacy_prefix):]:
                 suffix = uid[len(legacy_prefix):]
-                vehicle_id, short = suffix.rsplit("-", 1)
-            # Cas 2: éventuel nouveau schéma => f"{DOMAIN}_{entry}_{veh}_{short}"
-            elif uid.startswith(f"{DOMAIN}_{entry.entry_id}_"):
+                try:
+                    vehicle_id, short = suffix.rsplit("-", 1)
+                except ValueError:
+                    vehicle_id, short = None, None
+
+            # --- Cas 2: ancien schéma underscore => f"{DOMAIN}_{entry}_{veh}_{short}"
+            if vehicle_id is None and uid.startswith(f"{DOMAIN}_{entry.entry_id}_"):
                 suffix = uid[len(f"{DOMAIN}_{entry.entry_id}_"):]
                 try:
                     vehicle_id, short = suffix.rsplit("_", 1)
                 except ValueError:
-                    continue
-            else:
+                    vehicle_id, short = None, None
+
+            # --- Cas 3: nouveau schéma STABLE => f"{DOMAIN}-{veh}-{short}"
+            if vehicle_id is None and uid.startswith(f"{DOMAIN}-"):
+                suffix = uid[len(f"{DOMAIN}-"):]
+                # vehicle_id peut contenir des tirets, on coupe une seule fois par la droite
+                if "-" in suffix:
+                    vehicle_id, short = suffix.rsplit("-", 1)
+
+            if not vehicle_id or not short:
                 continue
 
             name = ent.original_name or ent.name or FR_BY_KEY.get(short) or short
@@ -313,10 +330,8 @@ class TorqueSensor(TorqueEntity, SensorEntity, RestoreEntity):
             name=car_name,        # <<< utilisé par HA pour préfixer les entity_id
             sw_version=car_ver,
         )
-        super().__init__(coordinator, config_entry, short, device)
-
-        # IMPORTANT: conserver l'UID historique pour éviter une migration
-        self._attr_unique_id = f"{config_entry.entry_id}-{vehicle_id}-{short}"
+        # La base TorqueEntity fixe un unique_id **stable** et migre les anciens UIDs si besoin.
+        super().__init__(coordinator, config_entry, short, device, vehicle_id=vehicle_id)
 
         # Identifiants locaux
         self._car_id = vehicle_id

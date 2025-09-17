@@ -4,21 +4,23 @@
 This wraps Home Assistant's CoordinatorEntity to:
 - attach entities to a per-vehicle Device (stable identifiers)
 - offer helpers to access coordinator data for a given car/key
-- provide a consistent default unique_id scheme
+- provide a consistent **stable** unique_id scheme independent of entry_id
 - dynamically name the Device from the latest Torque profile (Name/version)
 
 Sensors and trackers can subclass this and override presentation details
-(name, icon, classes) and even the unique_id when maintaining legacy IDs.
+(name, icon, classes). The base class also migrates legacy unique_ids that
+were based on entry_id to the new stable scheme to preserve history.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable, Tuple, Optional
+from typing import Any, Iterable, Tuple, Optional, List
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 
 from .const import DOMAIN
 
@@ -53,10 +55,88 @@ class TorqueEntity(CoordinatorEntity):
             idents = device_info.get("identifiers")
         self._car_id = (vehicle_id or self._extract_vehicle_id(idents)) or "unknown"
 
-        # Default UID (children can override to preserve legacy IDs)
-        self._attr_unique_id = f"{DOMAIN}_{config_entry.entry_id}_{self._car_id}"
-        if self._sensor_key:
-            self._attr_unique_id += f"_{self._sensor_key}"
+        # --- Stable unique_id (independent of entry_id) ---
+        # Format: f"{DOMAIN}-{vehicle_id}" or f"{DOMAIN}-{vehicle_id}-{short}"
+        self._attr_unique_id = self._build_stable_unique_id()
+
+    # -------------------------
+    # Unique ID helpers & migration
+    # -------------------------
+    def _build_stable_unique_id(self) -> str:
+        """New stable unique_id that survives entry removal/re-creation."""
+        base = f"{DOMAIN}-{self._car_id}"
+        return f"{base}-{self._sensor_key}" if self._sensor_key else base
+
+    def _legacy_unique_ids(self) -> List[str]:
+        """All legacy unique_id formats we want to migrate from."""
+        e = self._config_entry.entry_id
+        c = self._car_id
+        s = self._sensor_key
+
+        legacy: list[str] = []
+
+        # Old hyphen-based (as reported): "{entry_id}-{vehicle_id}-{short?}"
+        if s:
+            legacy.append(f"{e}-{c}-{s}")
+        legacy.append(f"{e}-{c}")
+
+        # Old underscore-based that existed in this base class:
+        # "{DOMAIN}_{entry_id}_{vehicle_id}" + "_{short?}"
+        if s:
+            legacy.append(f"{DOMAIN}_{e}_{c}_{s}")
+        legacy.append(f"{DOMAIN}_{e}_{c}")
+
+        # Super defensive: "{DOMAIN}-{entry_id}-{vehicle_id}-{short?}"
+        if s:
+            legacy.append(f"{DOMAIN}-{e}-{c}-{s}")
+        legacy.append(f"{DOMAIN}-{e}-{c}")
+
+        # Remove duplicates while preserving order
+        dedup: list[str] = []
+        seen: set[str] = set()
+        for uid in legacy:
+            if uid not in seen:
+                dedup.append(uid)
+                seen.add(uid)
+        return dedup
+
+    async def async_added_to_hass(self) -> None:
+        """Handle entity added: migrate legacy unique_id → stable unique_id."""
+        await super().async_added_to_hass()
+
+        try:
+            platform_domain = getattr(getattr(self, "platform", None), "domain", None)
+            if not platform_domain:
+                # If we can't resolve platform yet, skip migration (extremely rare).
+                return
+
+            registry = er.async_get(self.hass)
+            new_uid = self._build_stable_unique_id()
+
+            # If registry already uses the new UID, nothing to do.
+            existing_new = registry.async_get_entity_id(platform_domain, DOMAIN, new_uid)
+            if existing_new:
+                return
+
+            # Look for any legacy UID and migrate the first match.
+            for old_uid in self._legacy_unique_ids():
+                ent_id = registry.async_get_entity_id(platform_domain, DOMAIN, old_uid)
+                if ent_id:
+                    _LOGGER.debug(
+                        "Migrating %s unique_id from '%s' to '%s' for entity %s",
+                        platform_domain,
+                        old_uid,
+                        new_uid,
+                        ent_id,
+                    )
+                    registry.async_update_entity(ent_id, new_unique_id=new_uid)
+                    break
+
+            # Ensure the entity object reports the stable UID
+            self._attr_unique_id = new_uid
+
+        except Exception:  # noqa: BLE001
+            _LOGGER.exception("TorqueEntity unique_id migration failed")
 
     # -------------------------
     # Device / identifiers
