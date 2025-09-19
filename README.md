@@ -25,7 +25,7 @@
 
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
-![Version](https://img.shields.io/badge/version-2025.09.3.1-informational)
+![Version](https://img.shields.io/badge/version-2025.09.3.2-informational)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
 
 ---
@@ -227,3 +227,4 @@ This distribution is subject to the **Written Authorization Required License (LA
 
 - **2025.09.3** — Manifest versioning, API/coordinate robustness cleanup, FR i18n, hardened diagnostics.
 - **2025.09.3.1** — Multi-entry email routing, metric-native ingestion (unit preference annotation), legacy unique_id preservation, persistent HTTP view (inactive 404), app version parsing fix.
+- **2025.09.3.2** — Deterministic per-vehicle profile ID (slug(profileName)+id[:4]+email-salt) to prevent cross-device fusion; rounded trip times (s→min) and dropped negative GPS accuracy; improved profile name normalization/memory; enriched diagnostics (profile.Id, unit_preference, app version); sensor platform overhaul with stable unique_id + migration, suggested precision & device/state classes, zero-default for trip/distance/time counters, non-finite filtering, and better icon mapping.

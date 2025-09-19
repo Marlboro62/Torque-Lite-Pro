@@ -26,7 +26,7 @@
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
-![Version](https://img.shields.io/badge/version-2025.09.3.1-informational)
+![Version](https://img.shields.io/badge/version-2025.09.3.2-informational)
 
 ---
 
@@ -71,7 +71,7 @@
 
 1. **Paramètres → Intégrations → Ajouter une intégration → “Torque Pro”.**
 2. Renseignez :
-   - **E‑mail** (obligatoire) : sert de filtre côté API (les uploads doivent inclure `eml=<votre email>`).
+   - **E‑mail** (obligatoire) : sert de filtre côté API (les uploads doivent inclure `eml=<votre email>`). 
    - **Unités** : métrique ou impérial (conversion automatique).
    - **Langue** : `fr` ou `en` pour les libellés des capteurs.
 3. Ouvrez **Options** pour affiner :
@@ -79,46 +79,6 @@
    - **Taille max du cache** (plage **10–1000** sessions).
 
 > Aucun YAML requis. Tout se fait depuis l’UI.
-
----
-
-## 🔐 Authentification & sécurité
-
-L’endpoint **exige par défaut l’authentification Home Assistant** (`Authorization: Bearer <TOKEN>`). L’app Torque Pro **ne sait pas ajouter un header HTTP personnalisé** : il faut donc l’un des montages ci‑dessous.
-
-### Option A — Reverse proxy (conseillée)
-Faites transiter les uploads via un proxy qui **injecte** le header `Authorization`. Exemple **Nginx** :
-
-```nginx
-# remplacez <HA_HOST:PORT> et <YOUR_LONG_LIVED_TOKEN>
-location /api/torque_pro {
-    proxy_pass http://<HA_HOST:PORT>/api/torque_pro;
-    proxy_set_header Authorization "Bearer <YOUR_LONG_LIVED_TOKEN>";
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header Host $host;
-    # (facultatif) limitez par IP/firewall si possible
-}
-```
-
-Exemple **Caddy** :
-
-```caddyfile
-:443 {
-  reverse_proxy <HA_HOST:PORT> {
-    header_up Authorization "Bearer <YOUR_LONG_LIVED_TOKEN>"
-  }
-}
-```
-
-### Option B — (Non recommandé) Désactiver l’auth côté vue
-Dans `api.py`, la vue définit :
-
-```python
-requires_auth = True  # set to False only if your app cannot send token
-```
-
-Passer à `False` **expose** publiquement l’endpoint si votre instance est accessible d’Internet. À éviter sauf réseau local cloisonné.
 
 ---
 
@@ -139,21 +99,6 @@ Dans l’app **Torque Pro** :
 
 > L’intégration tolère de nombreuses variantes de clés envoyées par Torque et nettoie automatiquement les valeurs.
 
----
-
-## 🧪 Test rapide (sans Torque)
-
-```bash
-curl -X POST "https://<votre_domaine>/api/torque_pro"   -H "Authorization: Bearer <YOUR_LONG_LIVED_TOKEN>"   -d "session=test-123"   -d "eml=vous@example.com"   -d "id=veh-001"   -d "vehicle=Ma Voiture"   -d "k0d=88.0" \            # Speed (OBD)
-  -d "kff1006=48.8566" \     # GPS Lat
-  -d "kff1005=2.3522" \      # GPS Lon
-  -d "kff1010=35" \          # GPS Altitude (m)
-  -d "kff1239=6.5"           # GPS Accuracy (m)
-```
-
-Si tout est OK, vous verrez apparaître un **device** pour le véhicule et les entités correspondantes (capteurs + `device_tracker`).
-
----
 
 ## 🧩 Entités créées
 
@@ -177,7 +122,7 @@ Si tout est OK, vous verrez apparaître un **device** pour le véhicule et les e
 
 ## 🛠️ Dépannage
 
-- **Aucune donnée** : vérifiez le **token** ou le proxy (Option A), et que Torque envoie `session` **et** `eml` (si configuré).  
+- **Aucune donnée** : vérifiez le **token** , et que Torque envoie `session` **et** `eml` (si configuré).  
 - **Entités manquantes** : certains PIDs sans unité ne sont pas créés par défaut (hors capteurs textuels du type `...status/state/mode`).  
 - **Coordonnées incorrectes** : l’intégration valide les bornes lat/lon. Assurez-vous que Torque envoie soit les PIDs GPS (`ff1005/ff1006/ff1010/ff1239`), soit les paramètres `lat/lon/alt/acc`.
 
@@ -228,5 +173,6 @@ Si vous aimez ce projet, vous pouvez me soutenir ici :
 
 ## 📄 Changelog (extrait)
 
-- **2025.09.3** — Version manifest, nettoyage robustesse API/coordonnées, i18n FR, diagnostics renforcés.
-- **2025.09.3.1** — Routage e-mail multi-entrées, ingestion métrique native (annotation de préférence d’unités), préservation des unique_id hérités, vue HTTP persistante (inactive → 404), correctif de parsing de la version de l’application.
+- **2025.09.3** — Versionnage du manifest, durcissement robustesse API/coordinateur, i18n FR, diagnostics renforcés.
+- **2025.09.3.1** — Routage multi-entrée par e-mail, ingestion native métrique (annotation des préférences d’unités), préservation des anciens unique_id, vue HTTP persistante (404 quand inactive), correction du parsing de version d’appli.
+- **2025.09.3.2** — ID de profil par véhicule déterministe (slug(profileName)+id[:4]+sel e-mail) pour empêcher la fusion entre appareils ; arrondi des temps de trajet (s→min) et rejet des précisions GPS négatives ; normalisation/mémoire du nom de profil améliorées ; diagnostics enrichis (profile.Id, unit_preference, version appli) ; refonte de la plateforme sensor : unique_id stable + migration, précision suggérée & classes device/state, remise à zéro par défaut des compteurs trajet/distance/temps, filtrage des valeurs non finies, mappage d’icônes amélioré.
