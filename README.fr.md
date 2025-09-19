@@ -1,28 +1,14 @@
-<div style="display:flex; align-items:center; justify-content:space-between; gap:16px;">
-  <img src="https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/logo.png"
-       alt="HA Torque logo" width="336" />
+![HA Torque](https://raw.githubusercontent.com/Marlboro62/Torque-Lite-Pro/main/docs/images/logo.png)
 
-  <a href="https://ko-fi.com/nothing_one" aria-label="Soutenez-moi sur Ko-fi">
-    <img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Ko-fi" />
-  </a>
-</div>
+[![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/nothing_one)
 
 # Torque Pro — Intégration Home Assistant 🇫🇷
 
-<div style="border:1px solid #f0c36d; background:#fff8e1; padding:12px 16px; border-radius:8px;">
-  <strong>⚠️ Avertissement — Projet non officiel</strong><br>
-  Ce projet est développé de manière indépendante et n’est <strong>ni affilié, ni approuvé, ni endossé</strong>
-  par l’application <strong>Torque Lite/Pro</strong>.<br>
-  <small>“Torque”, “Torque Lite” et “Torque Pro” sont des marques appartenant à leurs détenteurs respectifs.</small>
-</div>
+> **Push temps réel** des données **OBD-II** depuis l’app Android **Torque Pro** vers **Home Assistant**.  
+> Crée dynamiquement des capteurs, un *device tracker* GPS par véhicule, conserve les **unités métriques natives**, localise les libellés (EN/FR) et expose un **endpoint HTTP**.
 
----
+*[English version]* : see [readme.md](./readme.md)
 
-> **Push temps réel des données OBD-II depuis l’app Android Torque Pro vers Home Assistant.**  
-> Crée dynamiquement les capteurs, un *device tracker* GPS par véhicule, normalise les unités (métrique/impérial), traduit les libellés (FR/EN) et expose un endpoint HTTP sécurisé.
-
-*[English version]*: voir [README.md](./README.md)
- 
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Custom%20Component-03a9f4)
 ![HACS](https://img.shields.io/badge/HACS-Custom-blue.svg)
 ![Status](https://img.shields.io/badge/iot__class-local__push-brightgreen)
@@ -30,149 +16,185 @@
 
 ---
 
-## 🔌 Matériel requis : interface OBD-II
+## 🔌 Matériel requis
 
-- **OBD2 Bluetooth (ELM327)**
-- Amazon : [OBD2 Bluetooth](https://amzn.to/48bHmPj)
-
-> *Lien d’affiliation : cela soutient le projet sans coût supplémentaire pour vous.*
+- **OBD-II Bluetooth (ELM327)**
+- Amazon : [OBD2 Bluetooth](https://amzn.to/48bHmPj) *(lien affilié — merci !)*
 
 ---
 
 ## ✨ Fonctionnalités
 
-- **Réception HTTP locale** sur `/api/torque_pro` (GET/POST/HEAD). Authentification Home Assistant requise par défaut (**recommandé**).
-- **Création dynamique** des entités :
-  - *Sensors* pour les PIDs OBD-II connus (avec *device_class* / *state_class* inférés quand c’est pertinent).
-  - **Device tracker GPS** par véhicule (latitude, longitude, précision, altitude, vitesse GPS).
-- **Normalisation & robustesse** : filtrage systématique des `NaN/Inf`, nettoyage des unités et des valeurs.
-- **Unités & langue** : métrique/impérial au choix, libellés FR/EN (fallback automatique si un libellé n’est pas connu).
-- **Compat rétro** : schéma d’`unique_id` identique aux versions précédentes pour éviter toute migration.
-- **Diagnostics durcis** : les champs sensibles (email, tokens, VIN, coordonnées, etc.) sont masqués dans le rapport.
+- **Récepteur HTTP local** sur **`/api/torque_pro`** (GET/POST/HEAD).  
+  Authentification Home Assistant **requise par défaut** (recommandé).
+- **Création dynamique d’entités** :
+  - *Sensors* pour les PIDs connus (avec **device_class**/**state_class** déduites quand pertinent).
+  - **Device tracker GPS par véhicule** (lat/lon/alt/précision/vitesse GPS).
+- **Hygiène & robustesse des données** : filtrage NaN/Inf, bornes GPS validées, arrondi **s→min** pour les temps de trajet, synthèse **L/100 ↔ KPL/MPG** quand un seul côté est présent.
+- **Langue & libellés** : EN/FR avec repli automatique.
+- **IDs stables** : pas de fusion accidentelle entre véhicules/profils.
+- **Diagnostics** : détaillés, champs sensibles masqués.
 
-> Domaine : `torque_pro` — Type : `service` — IoT class : `local_push` — Dépendances : `http` — Requirements : `pint>=0.24`
+> Domaine : `torque_pro` — Classe IoT : `local_push` — Dépendance : `http`
 
 ---
 
 ## 📦 Installation
 
 ### Via HACS (recommandé)
-1. **HACS → Intégrations →** ••• **→ Dépôts personnalisés** → ajoutez le dépôt contenant ce composant.
-2. Recherchez **Torque Pro** puis installez.
+1. **HACS → Integrations →** ••• **→ Custom repositories** → ajoutez ce dépôt.
+2. Recherchez **Torque Pro** et installez.
 3. Redémarrez Home Assistant si demandé.
 
 ### Installation manuelle
-1. Copiez le dossier `custom_components/torque_pro/` dans votre répertoire `config/custom_components/` de Home Assistant.
+1. Copiez `custom_components/torque_pro/` dans `config/custom_components/`.
 2. Redémarrez Home Assistant.
 
 ---
 
 ## ⚙️ Configuration (UI)
 
-1. **Paramètres → Intégrations → Ajouter une intégration → “Torque Pro”.**
+1. **Settings → Devices & Services → Add Integration → “Torque Pro”.**
 2. Renseignez :
-   - **E‑mail** (obligatoire) : sert de filtre côté API (les uploads doivent inclure `eml=<votre email>`). 
-   - **Unités** : métrique ou impérial (conversion automatique).
-   - **Langue** : `fr` ou `en` pour les libellés des capteurs.
-3. Ouvrez **Options** pour affiner :
-   - **TTL des sessions en mémoire** (plage **60–86400 s**).
-   - **Taille max du cache** (plage **10–1000** sessions).
+   - **Email (obligatoire)** : utilisé pour **router** les envois (`eml=<votre email>`).
+   - **Langue** : `en` ou `fr` (libellés des capteurs).
+   - **Préférences mémoire** : TTL de session (60–86400 s), taille LRU (10–1000).
 
-> Aucun YAML requis. Tout se fait depuis l’UI.
+> Vous pouvez créer **plusieurs entrées** (ex. *Torque Pro Phone 1* / *Torque Pro Phone 2*) et router chaque téléphone via son **`eml=`**.
 
 ---
 
-## 📱 Réglages “Torque Pro” (Android)
+## 📱 Réglages de l’app “Torque Pro” (Android)
 
-Dans l’app **Torque Pro** :  
-**Settings → Data Logging & Upload → Web server URL**
+**Torque Pro → Settings → Data Logging & Upload → Web server URL**
 
-- **URL** : l’URL publique de votre proxy ou de Home Assistant, p.ex.  
-  `https://exemple.fr/api/torque_pro`
-- **Méthode** : GET ou POST (les deux sont supportés).
-- **Paramètres envoyés** : Torque ajoute automatiquement les paires `k<code>=<valeur>` pour les PIDs.  
-  **Ajoutez** aussi :
-  - `session` : un identifiant de session (ex. `${session}`).
-  - `eml` : votre e‑mail (doit **correspondre** à la configuration HA si le filtre est actif).
-  - (facultatif) `id` (vehicle id), `vehicle`/`profileName` (nom profil), `vin`, `lang`, `imperial`.
-  - (fallback GPS) `lat`, `lon`, `alt`, `acc` si votre profil n’envoie pas les PIDs GPS.
+- **URL** : `https://votre-domaine/api/torque_pro`
+- **Méthode** : GET **ou** POST (les deux sont supportées)
+- **Paramètres** (dans l’URL, après `?`) :
+  - `session=${session}`  ← **obligatoire**
+  - `eml=<email>`        ← doit **correspondre** à l’entrée HA qui doit recevoir les données
+  - `profileName=${profile}` *(ou `vehicle=${profile}` / `name=${profile}`)*  ← **recommandé** (maintient la séparation par profil/voiture/personne)
+  - `id=${vehicleId}`     *(optionnel, encouragé)*
+  - `lang=en`             *(optionnel)*
+  - **Secours GPS** *(si votre profil n’inclut pas les PIDs GPS)* :  
+    `lat=${lat}&lon=${lon}&alt=${altitude}&acc=${gpsacc}`
 
-> L’intégration tolère de nombreuses variantes de clés envoyées par Torque et nettoie automatiquement les valeurs.
+> **Torque** ajoute **automatiquement** des paires `k<code>=<valeur>` pour les PIDs.  
+> Ne **pas** ajouter `imperial=` : l’ingestion demeure **nativement métrique** (HA gère la conversion d’affichage).
 
+### Exemples (multi-entrées)
+- **Un téléphone** :  
+  `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
+- **Deux téléphones** :  
+  `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
+
+---
+
+## ✅ Bonnes pratiques PIDs
+
+Évitez de tout cocher dans Torque :
+
+1. Trop de PIDs **ralentissent** les lectures ECU et **gonflent** les envois.
+2. Vous créerez des **capteurs inutiles** (bruit).
+3. Risque de **doublons** : l’intégration synthétise déjà **L/100 ↔ KPL/MPG** si un seul côté est présent.
+4. De nombreux PIDs sont **non pris en charge** selon les ECUs (0/N.A.) — décochez-les.
+
+---
 
 ## 🧩 Entités créées
 
-- **Device** par véhicule (identifiant stable).
-- **Sensors** : créés *à la volée* pour chaque PID “créable” détecté (libellé FR/EN, unité, précision d’affichage).  
-  Quelques exemples fréquents : RPM, vitesse OBD/GPS, température LDR, MAF, MAP, pression baro, tension batterie, consommation, etc.
-- **Device tracker** : latitude/longitude/accuracy/altitude/vitesse GPS + `gps_time` si présent.
+- **Device** par véhicule (ID **déterministe**).
+- **Sensors (`sensor.*`)** : créés *à la volée* (libellé EN/FR, unité, précision d’affichage suggérée).  
+  Exemples : RPM, vitesses OBD/GPS, températures, MAF/MAP, pression barométrique, tension batterie, économie de carburant, etc.
+- **Device tracker (`device_tracker.*`)** : lat/lon/alt/précision/vitesse GPS.
 
-> Les capteurs purement GPS (lat/lon) **ne** sont pas dupliqués en sensors : ils nourrissent le *device tracker*.
+> Les lat/lon GPS alimentent le **device_tracker** et ne sont pas dupliqués en capteurs.
 
 ---
 
-## 🧰 Options & comportement
+## 🔐 Sécurité (important)
 
-- **TTL & cache mémoire** : les sessions reçues sont conservées en LRU avec un TTL configurable (plage **60–86400 s**) et une taille max (**10–1000**).  
-- **Disponibilité** : les entités restent disponibles tant que le coordinateur conserve des données récentes.  
-- **Unités** : conversions automatiques (km/h ↔ mph, kPa/bar ↔ psi, m ↔ ft, °C ↔ °F, etc.).  
-- **Langue** : traduction des libellés en FR si connue, sinon fallback anglais.
+Torque **ne peut pas** envoyer d’en-tête `Authorization`. Pour une exposition publique sécurisée :
+
+- Utilisez un **reverse proxy** (Nginx/Traefik) qui **injecte** `Authorization: Bearer <token>`.
+- Ou restreignez l’accès via **VPN** (WireGuard/Tailscale) / réseau local.
+- **Évitez** d’exposer l’endpoint ouvert sur Internet.
+
+> Par défaut, l’endpoint requiert l’auth HA. N’exposez jamais des tokens en clair.
+
+---
+
+## ⚙️ Comportement & options
+
+- **Mémoire LRU/TTL** : sessions conservées avec TTL configurable (60–86400 s) et taille max (10–1000).
+- **Disponibilité** : les entités restent disponibles tant que des données récentes existent (ou dernier état restauré / 0 pour certains compteurs).
+- **Unités / affichage** :
+  - **Ingestion métrique native** (pas de conversions destructives).
+  - **Synthèse L/100 ↔ KPL/MPG** si un seul côté est présent.
+  - **Arrondi s→min** pour le temps de trajet.
+  - **Précision d’affichage suggérée** par unité (vitesse, pression, etc.).
+- **ID stable par véhicule/profil** (évite la fusion inter-profils/téléphones) :
+  - basé sur `slug(profileName)` + `id[:4]` + petit *salt* dérivé de l’email (si présent).
+- **Multi-entrée** : `eml=` **route** vers l’entrée appropriée.
 
 ---
 
 ## 🛠️ Dépannage
 
-- **Aucune donnée** : vérifiez le **token** , et que Torque envoie `session` **et** `eml` (si configuré).  
-- **Entités manquantes** : certains PIDs sans unité ne sont pas créés par défaut (hors capteurs textuels du type `...status/state/mode`).  
-- **Coordonnées incorrectes** : l’intégration valide les bornes lat/lon. Assurez-vous que Torque envoie soit les PIDs GPS (`ff1005/ff1006/ff1010/ff1239`), soit les paramètres `lat/lon/alt/acc`.
+- **“IGNORED / No matching route”** dans les logs → le paramètre `eml=` ne correspond **à aucune entrée configurée**.
+- **404 Not Found** → aucune entrée active pour l’intégration (vue HTTP inactive).
+- **Pas de données** → vérifiez `session=${session}` et la connectivité OBD/réseau.
 
-Générez un **rapport de diagnostics** depuis l’UI de Home Assistant (les infos sensibles seront masquées).
+### Logs de debug (optionnel)
+```yaml
+logger:
+  logs:
+    custom_components.torque_pro.api: debug
+    custom_components.torque_pro.coordinator: debug
+```
+Vous verrez `Resolved profile → …` avec l’ID calculé.
 
 ---
 
-## 🧾 Licence
+## 📄 Licence
 
-Cette distribution est soumise à la **Licence d’Autorisation Écrite Requise (LAER-TPHA-1.0)** — *Usage autorisé :* **Torque Pro ↔ Home Assistant**.
+Cette distribution est régie par la **Written Authorization Required License (LAER-TPHA-1.0)** — *Usage permis :* **Torque Pro ↔ Home Assistant**.
 
-**TL;DR** : usage **personnel et non commercial** uniquement. Tout autre usage nécessite une **autorisation écrite**.
+**En bref** : usage **personnel, non commercial**. Tout autre usage nécessite une **autorisation écrite**.
 
-### ✅ Autorisé sans accord préalable
-- Installer et utiliser ce composant **sur votre propre instance** de Home Assistant pour connecter l’app Android *Torque Pro*,
-- à des fins **strictement non commerciales**.
+### ✅ Autorisé sans approbation préalable
+- Installer et utiliser **sur votre propre instance Home Assistant**, à des fins **non commerciales**.
 
-### ❌ Interdit sans accord écrit préalable
-- Reproduction, fork ou création d’œuvres dérivées publiées,
+### ❌ Interdit sans autorisation écrite
+- Reproduction, forks ou travaux dérivés publiés,
 - Modification, publication ou **distribution** du code/binaire,
 - Intégration dans d’autres projets/produits,
 - Hébergement, **SaaS**, marketplaces, images/packs,
-- Tout **usage commercial** (direct ou indirect).
+- Tout usage **commercial** (direct ou indirect).
 
-**Texte complet :** voir [`LICENSE`](./LICENSE).  
-**Demander une autorisation :** [ouvrez une issue “Demande de licence”](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
+Voir [`LICENSE`](./LICENSE).  
+Demander une autorisation : [ouvrir un ticket “License request”](../../issues/new?assignees=&labels=license%2Clegal&template=license_request.yml&title=License%20request%3A%20).
 
-> *“Torque”, “Torque Lite” et “Torque Pro” sont des marques appartenant à leurs détenteurs respectifs. Projet non officiel.*
-
-
-
+> *“Torque”, “Torque Lite” et “Torque Pro” sont des marques de leurs propriétaires respectifs.*
 
 ---
 
 ## 🙌 Remerciements
 
-- App **Torque Pro** (OBD-II) — Android
-- Communauté Home Assistant
+- Application **Torque Pro** (Android — OBD-II)
+- Communauté **Home Assistant**
 
 ---
 
-## ☕ Support
+## ☕ Soutenir
 
----
-
-Si vous aimez ce projet, vous pouvez me soutenir ici :  
+Si ce projet vous plaît, vous pouvez me soutenir ici :  
 [![Ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/nothing_one)
 
-## 📄 Changelog (extrait)
+---
 
-- **2025.09.3** — Versionnage du manifest, durcissement robustesse API/coordinateur, i18n FR, diagnostics renforcés.
-- **2025.09.3.1** — Routage multi-entrée par e-mail, ingestion native métrique (annotation des préférences d’unités), préservation des anciens unique_id, vue HTTP persistante (404 quand inactive), correction du parsing de version d’appli.
-- **2025.09.3.2** — ID de profil par véhicule déterministe (slug(profileName)+id[:4]+sel e-mail) pour empêcher la fusion entre appareils ; arrondi des temps de trajet (s→min) et rejet des précisions GPS négatives ; normalisation/mémoire du nom de profil améliorées ; diagnostics enrichis (profile.Id, unit_preference, version appli) ; refonte de la plateforme sensor : unique_id stable + migration, précision suggérée & classes device/state, remise à zéro par défaut des compteurs trajet/distance/temps, filtrage des valeurs non finies, mappage d’icônes amélioré.
+## 📄 Journal des changements (extrait)
+
+- **2025.09.3** — Versionnage du manifeste, nettoyage de robustesse API/coordinator, i18n FR, diagnostics renforcés.  
+- **2025.09.3.1** — Routage multi-entrées par email, ingestion métrique native (annotation des préférences d’unité), préservation des *unique_id* hérités, vue HTTP persistante (inactive 404), correction du parsing de version d’app.  
+- **2025.09.3.2** — ID de profil véhicule déterministe (slug(profileName)+id[:4]+email-salt) pour éviter la fusion inter-appareils ; temps de trajet arrondis (s→min) et précision GPS négative ignorée ; normalisation/mémoire du nom de profil améliorée ; diagnostics enrichis (profile.Id, unit_preference, version de l’app) ; refonte de la plateforme capteurs : *unique_id* stables + migration, précision suggérée & classes device/state, valeur par défaut zéro pour compteurs trajet/distance/temps, filtrage des non-finis, mapping d’icônes amélioré.

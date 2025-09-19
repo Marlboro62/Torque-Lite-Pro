@@ -86,7 +86,7 @@
 - **One phone**:  
   `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
 - **Two phone**:  
-  `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
+  `https://XXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
 
 ---
 
