@@ -1,7 +1,7 @@
 {
   "domain": "torque_pro",
   "name": "Torque Pro",
-  "version": "2025.09.3.1",
+  "version": "2025.09.3.2",
   "documentation": "https://github.com/Marlboro62/Torque-Lite-Pro",
   "issue_tracker": "https://github.com/Marlboro62/Torque-Lite-Pro/issues",
   "codeowners": ["@Marlboro62"],
