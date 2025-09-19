@@ -17,6 +17,7 @@ import logging
 import inspect
 import math
 import re
+import hashlib  # (NEW) email salt for profile id
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -207,7 +208,8 @@ def _normalize_runtime_units(values: Dict[str, Any], meta: Dict[str, Dict[str, A
         if short in _SECONDS_TO_MIN and unit == "s":
             v = values.get(short)
             if isinstance(v, Number) and math.isfinite(float(v)):
-                values[short] = float(v) / 60.0
+                # (CHANGED) arrondi pour éviter 0.0166666...
+                values[short] = round(float(v) / 60.0, 2)
                 m["unit"] = "min"
                 meta[short] = m
 
@@ -433,8 +435,9 @@ class TorqueReceiveDataView(HomeAssistantView):
 
         vehicle_id = (q.get("id") or "").strip()
 
-        # Extraction robuste du nom de profil
+        # Extraction robuste du nom de profil + normalisation espaces
         profile_name = _extract_profile_name(q)
+        profile_name = re.sub(r"\s+", " ", (profile_name or "")).strip()
 
         # App version (prefer explicit keys; don't treat bare 'v=9' as app version)
         app_version = self._extract_app_version(q)
@@ -499,22 +502,64 @@ class TorqueReceiveDataView(HomeAssistantView):
                 {"name": get_label(lang, "GPS Altitude"), "unit": "m", "full_en": "GPS Altitude", "code": "ff1010"},
             )
         acc_direct = _parse_number(q.get("acc") or q.get("accuracy"))
-        if acc_direct is not None:
+        # (CHANGED) ignore negative accuracy values
+        if acc_direct is not None and acc_direct >= 0:
             values[TORQUE_GPS_ACCURACY] = acc_direct
             meta.setdefault(
                 TORQUE_GPS_ACCURACY,
                 {"name": get_label(lang, "GPS Accuracy"), "unit": "m", "full_en": "GPS Accuracy", "code": "ff1239"},
             )
 
-        # Si aucun nom n'est fourni OU s'il ressemble à un fallback, réutiliser le dernier bon nom
+        # --- Name/Id resolution without cross-vehicle collisions ---
+        # Keep what came from the payload (if anything)
+        name_from_payload = profile_name
+        used_email_fallback = False
+
+        # If no explicit profile name (or it's poor), try last known name for this id/email
         if not profile_name or _is_poor_name(profile_name):
-            remembered = (vehicle_id and self._last_name_by_id.get(vehicle_id)) or (eml and self._last_name_by_email.get(eml)) or ""
+            remembered = (
+                (vehicle_id and self._last_name_by_id.get(vehicle_id))
+                or (eml and self._last_name_by_email.get(eml))
+                or ""
+            )
             if remembered and not _is_poor_name(remembered):
                 profile_name = remembered
+                used_email_fallback = True
 
-        # Fallback neutre si toujours rien
+        # Still nothing? Pick a neutral display name
         if not profile_name:
             profile_name = f"Vehicle {session_id[:6]}"
+
+        # Vehicle Id resolution (no cross-vehicle fusion):
+        # 1) Proper payload name -> base; salt with 4 chars of id + 4 chars of email hash (if any)
+        # 2) Else Torque's raw 'id'
+        # 3) Else temp per-session id
+        if name_from_payload and not _is_poor_name(name_from_payload):
+            base = slugify(name_from_payload)  # ex: laguna_mikael / slk_mikael
+            salt = ""
+            if eml:
+                try:
+                    salt = hashlib.sha1(eml.encode("utf-8")).hexdigest()[:4]
+                except Exception:
+                    salt = ""
+            if vehicle_id:
+                profile_id = f"{base}_{vehicle_id[:4]}{('_' + salt) if salt else ''}"
+            else:
+                profile_id = f"{base}{('_' + salt) if salt else ''}"
+        elif vehicle_id:
+            profile_id = vehicle_id
+        else:
+            profile_id = f"veh_{session_id[:6]}"
+            if used_email_fallback:
+                _LOGGER.debug(
+                    "No profile name/id for email=%s → using display fallback '%s' and temp id '%s'",
+                    eml or "<none>", profile_name, profile_id
+                )
+
+        _LOGGER.debug(
+            "Resolved profile → Name=%r (payload=%r, email_fallback=%s)  raw_id=%r  → profile_id=%r",
+            profile_name, name_from_payload, used_email_fallback, vehicle_id, profile_id
+        )
 
         # Preference d'unité (annotation seulement)
         imperial_flag = self.imperial if imperial_override is None else bool(imperial_override)
@@ -522,7 +567,7 @@ class TorqueReceiveDataView(HomeAssistantView):
 
         profile = {
             "Name": profile_name,
-            "Id": vehicle_id or slugify(profile_name),
+            "Id": profile_id,
             "Email": eml,
         }
         if app_version:
@@ -530,8 +575,6 @@ class TorqueReceiveDataView(HomeAssistantView):
 
         # IMPORTANT: Pas de conversion impériale à l’ingestion.
         # Les unités de 'meta' restent telles que déclarées dans TORQUE_CODES (métriques).
-        # Les entités HA feront la conversion d'affichage selon la préférence globale HA
-        # (ou en utilisant 'unit_preference' ci-dessous si tu veux une logique avancée ailleurs).
 
         # s -> min pour les temps de trajet
         _normalize_runtime_units(values, meta)
@@ -558,13 +601,14 @@ class TorqueReceiveDataView(HomeAssistantView):
             "unit_preference": unit_preference,  # <-- annotation (no conversion done)
         }
 
-        # Mémoriser le bon nom pour les futures trames sans nom
+        # Memory of "good" names for future nameless frames:
+        # - only update the email memory if the name actually came from the payload
+        # - always remember by explicit vehicle_id when provided
         if not _is_poor_name(profile_name):
-            vid = profile.get("Id") or vehicle_id
-            if eml:
+            if eml and not used_email_fallback:
                 self._last_name_by_email[eml] = profile_name
-            if vid:
-                self._last_name_by_id[vid] = profile_name
+            if vehicle_id:  # bind only when Torque provided a persistent id
+                self._last_name_by_id[vehicle_id] = profile_name
 
         return session
 

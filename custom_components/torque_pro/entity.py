@@ -55,6 +55,12 @@ class TorqueEntity(CoordinatorEntity):
             idents = device_info.get("identifiers")
         self._car_id = (vehicle_id or self._extract_vehicle_id(idents)) or "unknown"
 
+        # Micro-ajustement 1: log si car_id inconnu (aide au diagnostic)
+        if self._car_id == "unknown":
+            _LOGGER.warning(
+                "TorqueEntity created with unknown car_id (sensor_key=%s)", self._sensor_key
+            )
+
         # --- Stable unique_id (independent of entry_id) ---
         # Format: f"{DOMAIN}-{vehicle_id}" or f"{DOMAIN}-{vehicle_id}-{short}"
         self._attr_unique_id = self._build_stable_unique_id()
@@ -105,9 +111,22 @@ class TorqueEntity(CoordinatorEntity):
         await super().async_added_to_hass()
 
         try:
+            # Micro-ajustement 2: fallback plus tolérant pour déterminer le domaine
             platform_domain = getattr(getattr(self, "platform", None), "domain", None)
             if not platform_domain:
-                # If we can't resolve platform yet, skip migration (extremely rare).
+                # Optionnel: permettre à un sous-classe de définir _domain si nécessaire
+                platform_domain = getattr(self, "_domain", None)
+            if not platform_domain:
+                # Dernier recours: heuristique sur le nom de classe
+                name = self.__class__.__name__.lower()
+                if "sensor" in name:
+                    platform_domain = "sensor"
+                elif "tracker" in name or "device" in name:
+                    platform_domain = "device_tracker"
+
+            if not platform_domain:
+                # Si on ne peut toujours pas déterminer, on abandonne proprement
+                _LOGGER.debug("Could not resolve platform domain for %s; skip UID migration", self)
                 return
 
             registry = er.async_get(self.hass)

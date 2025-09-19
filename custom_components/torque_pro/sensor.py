@@ -21,8 +21,7 @@ from homeassistant.components.sensor import (
 )
 from homeassistant.core import HomeAssistant  # noqa: E402
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.helpers import entity_registry as er
-    # utilisé pour restaurer les entités existantes (détection des UIDs anciens/nouveaux)
+from homeassistant.helpers import entity_registry as er  # utilisé pour restaurer les entités existantes
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.restore_state import RestoreEntity
@@ -47,6 +46,10 @@ def _infer_device_class(short: str, unit: str | None) -> SensorDeviceClass | Non
     """Assigne un device_class prudent en fonction de l’unité et du nom court."""
     u = (unit or "").strip()
     s = (short or "").lower()
+
+    # Durées (nos PIDs trip_time_* sont convertis en minutes côté API)
+    if u in ("s", "min", "h"):
+        return SensorDeviceClass.DURATION
 
     if u in ("°C", "°F"):
         return SensorDeviceClass.TEMPERATURE
@@ -130,15 +133,23 @@ def _suggest_precision(short: str, unit: str | None) -> int | None:
 
 # -------- Valeurs qui doivent retomber à 0 si absentes --------
 _ZERO_DEFAULT_SHORTS = {
-    "trip_distance",            # ff1204
-    "trip_distance_stored",     # ff120c
-    "dist_mil_on",              # 0x21
-    "dist_since_codes_cleared", # 0x31
-    "trip_time_since_start",    # ff1266
-    "trip_time_stationary",     # ff1267
-    "trip_time_moving",         # ff1268
-    "engine_kw_wheels",         # ff1273 → Puiss. kW (roues)
-    "horsepower_wheels",        # ff1226 → Puiss. roues hp
+    "trip_distance",
+    "cost_per_km_trip",
+    "trip_distance_stored",
+    "dist_mil_on",
+    "dist_since_codes_cleared",
+    "trip_time_since_start",
+    "trip_time_stationary",
+    "trip_time_moving",
+    "engine_kw_wheels",
+    "horsepower_wheels",
+    "l_per_100_instant",
+    "mpg_trip_avg",
+    "avg_trip_speed_moving",
+    "positive_kinetic_energy_pke",
+    "cost_per_milekm_trip",
+    "torque_at_wheels",
+    "co2_gkm_avg",
 }
 
 
@@ -265,7 +276,7 @@ def _make_sensor(coordinator, entry: ConfigEntry, vehicle_id: str, short: str, m
     return TorqueSensor(coordinator, entry, vehicle_id, short, name, unit)
 
 
-# ------ Récupération du nom/firmware profil depuis le coordinator ------
+# ------ Récupération du nom/firmware profil depuis le coordinateur ------
 def _profile_name_and_version(coordinator, vehicle_id: str) -> tuple[str, str | None]:
     """Retourne (nom_profil, version_app) connus pour ce véhicule, avec fallback sain.
 
@@ -552,7 +563,7 @@ class TorqueSensor(TorqueEntity, SensorEntity, RestoreEntity):
             return "mdi:gas-station"
         if u in ("°",):
             return "mdi:compass"
-        if u in ("%",):
+        if u in ("%"):
             return "mdi:gauge"
 
         return None
