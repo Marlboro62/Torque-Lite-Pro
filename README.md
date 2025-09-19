@@ -60,7 +60,7 @@
    - **Language**: `en` or `fr` (sensor labels).
    - **Memory preferences**: session TTL (60–86400 s), LRU size (10–1000).
 
-> You can create **multiple entries** (e.g., *Torque Pro Aline* / *Torque Pro Mikaël*) and route each phone via its **`eml=`**.
+> You can create **multiple entries** (e.g., *Torque Pro Phone 1* / *Torque Pro Phone 2*) and route each phone via its **`eml=`**.
 
 ---
 
@@ -83,10 +83,10 @@
 > Do **not** add `imperial=`: ingestion remains **metric-native** (HA handles display conversion).
 
 ### Examples (multi-entry)
-- **Aline’s phone**:  
-  `https://torque.duckdns.org/api/torque_pro?eml=aline.couvreur10@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
-- **Mikaël’s phone**:  
-  `https://torque.duckdns.org/api/torque_pro?eml=<mikael_email>&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
+- **One phone**:  
+  `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
+- **Two phone**:  
+  `https://XXXXXX.duckdns.org/api/torque_pro?eml=XXXXXXXXXX@gmail.com&lang=en&session=${session}&profileName=${profile}&id=${vehicleId}`
 
 ---
 
